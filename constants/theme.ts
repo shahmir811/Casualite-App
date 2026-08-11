@@ -1,53 +1,55 @@
-/**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
- */
-
-import { Platform } from 'react-native';
-
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+// Design tokens extracted directly from the CasualOS customer portal
+// (resources/views/portal/dashboard.blade.php, show.blade.php) — this app is
+// the native counterpart of that portal and should read as the same product.
+// Light mode only. Nothing in the source portal specs a dark variant, so
+// don't add one speculatively.
 
 export const Colors = {
-  light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
-  },
-  dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
-  },
+  background: '#F5F5F7',
+  surface: '#FFFFFF',
+  border: '#E8E8ED',
+  divider: '#F2F2F7',
+  surfacePressed: '#EFEFF4',
+  textPrimary: '#1D1D1F',
+  textSecondary: '#6E6E73',
+  textTertiary: '#86868B',
+  accent: '#0071E3',
+  success: '#30D158',
+  error: '#FF3B30',
 };
 
-export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
-  },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
-  },
-  web: {
-    sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-    serif: "Georgia, 'Times New Roman', serif",
-    rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
-    mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
-  },
-});
+// Order status chips — not used until the Ordering slice exists, but kept
+// here now so that work doesn't need a second token-file handoff.
+export const StatusColors = {
+  received: { bg: '#DBEAFE', text: '#1D4ED8' },
+  confirmed: { bg: '#FEF9C3', text: '#A16207' },
+  stitching: { bg: '#FFEDD5', text: '#C2410C' },
+  partially_dispatched: { bg: '#F3E8FF', text: '#7E22CE' },
+  dispatched: { bg: '#DCFCE7', text: '#15803D' },
+  cancelled: { bg: '#FEE2E2', text: '#B91C1C' },
+} as const;
+
+export const Spacing = {
+  xs: 4,
+  sm: 8,
+  md: 16,
+  lg: 24,
+  xl: 32,
+};
+
+export const Radius = {
+  pill: 999, // buttons
+  card: 12, // cards, inputs, other bordered surfaces
+  chip: 8, // icon containers, small inline chips
+};
+
+// System font on both platforms: San Francisco on iOS (free, matches the
+// web portal), Roboto on Android. Inter would be the specified Android
+// fallback but isn't installed in this project, so no fontFamily override —
+// Android already lands on Roboto by default, per the spec's own fallback.
+export const Typography = {
+  weightRegular: '400' as const,
+  weightMedium: '500' as const,
+  weightSemibold: '600' as const,
+  weightBold: '700' as const,
+};
