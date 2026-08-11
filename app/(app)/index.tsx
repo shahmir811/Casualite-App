@@ -14,6 +14,8 @@ export default function HomeScreen() {
       <Text style={styles.greeting}>Welcome, {customer?.name}</Text>
 
       <View style={styles.nav}>
+        <NavRow icon="pricetags-outline" label="Browse Catalogues" onPress={() => router.push('/catalogues')} />
+        <View style={styles.navDivider} />
         <NavRow icon="receipt-outline" label="My Orders" onPress={() => router.push('/orders')} />
         <View style={styles.navDivider} />
         <NavRow icon="wallet-outline" label="Account & Ledger" onPress={() => router.push('/ledger')} />

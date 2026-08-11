@@ -101,3 +101,56 @@ export type LedgerEntry = {
   payment_id: string | null;
   created_at: string;
 };
+
+export type CatalogueSummary = {
+  id: number;
+  name: string;
+  cover_photo_url: string | null;
+  quantity_benchmark: number | null;
+  qty_per_design: number;
+  number_of_designs: number;
+  total_pieces: number;
+  available_pieces: number;
+  sold_out: boolean;
+  already_ordered: boolean;
+};
+
+export type Design = {
+  id: number;
+  name: string;
+  photo_url: string | null;
+  selling_price: string;
+  discount_price: string | null;
+};
+
+export type CatalogueDetail = CatalogueSummary & {
+  designs: Design[];
+};
+
+// The one set of XS/S/M/L/XL quantities entered for a whole catalogue —
+// applied to every design in it. See CLAUDE.md §4.
+export type QuoteLine = {
+  design_id: number;
+  design: string;
+  unit_price: number;
+  xs: number;
+  s: number;
+  m: number;
+  l: number;
+  xl: number;
+  pieces: number;
+  line_total: number;
+};
+
+// Unlike Order money fields, the quote endpoint returns plain integers
+// (whole rupees), not decimal strings — formatCurrency handles both.
+export type Quote = {
+  pieces_per_design: number;
+  total_pieces: number;
+  design_count: number;
+  uses_discount: boolean;
+  quantity_benchmark: number | null;
+  total_amount: number;
+  sizes: SizeBreakdown;
+  lines: QuoteLine[];
+};
