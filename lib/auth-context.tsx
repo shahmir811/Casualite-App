@@ -1,6 +1,7 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 
 import { apiClient, ApiError, setAuthToken } from '@/lib/api-client';
+import { requestPushPermissionAndRegister, syncPushTokenIfGranted, unregisterPushToken } from '@/lib/push-notifications';
 import { clearStoredToken, getStoredToken, setStoredToken } from '@/lib/secure-storage';
 import { Customer } from '@/lib/types';
 
@@ -32,6 +33,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const data = await apiClient.get<{ customer: Customer }>('/api/me');
         setCustomer(data.customer);
         setStatus('authenticated');
+        // Cold start with a restored session — silently re-register if
+        // permission was already granted. Never prompts here.
+        void syncPushTokenIfGranted();
       } catch (err) {
         // Only a confirmed-invalid token gets wiped. A network failure here
         // just falls back to the login screen without discarding the token,
@@ -54,9 +58,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthToken(data.token);
     setCustomer(data.customer);
     setStatus('authenticated');
+    // Fresh interactive login — a reasonable moment to ask for permission.
+    void requestPushPermissionAndRegister();
   }, []);
 
   const logout = useCallback(async () => {
+    await unregisterPushToken();
     setAuthToken(null);
     await clearStoredToken();
     setCustomer(null);

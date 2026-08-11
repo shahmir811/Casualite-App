@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "casualite-app",
-    "slug": "casualite-app",
+    "slug": "casualiteos",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -39,11 +39,19 @@
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "787a85ef-43bf-4f3a-84eb-d276cbcd178c"
+      }
+    },
+    "owner": "the-techmint"
   }
 }
