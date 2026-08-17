@@ -142,6 +142,15 @@ export type QuoteLine = {
   line_total: number;
 };
 
+export type Announcement = {
+  id: string;
+  title: string;
+  body: string;
+  image_url: string | null;
+  sent_at: string;
+  read_at: string | null;
+};
+
 // Unlike Order money fields, the quote endpoint returns plain integers
 // (whole rupees), not decimal strings — formatCurrency handles both.
 export type Quote = {

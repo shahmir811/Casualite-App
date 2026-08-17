@@ -24,6 +24,8 @@ export default function AppLayout() {
       <Stack.Screen name="ledger" options={{ ...detailHeaderOptions, title: 'Account' }} />
       <Stack.Screen name="catalogues/index" options={{ ...detailHeaderOptions, title: 'Catalogues' }} />
       <Stack.Screen name="catalogues/[id]" options={{ ...detailHeaderOptions, title: 'New Order' }} />
+      <Stack.Screen name="announcements/index" options={{ ...detailHeaderOptions, title: 'Announcements' }} />
+      <Stack.Screen name="announcements/[id]" options={{ ...detailHeaderOptions, title: 'Announcement' }} />
     </Stack>
   );
 }

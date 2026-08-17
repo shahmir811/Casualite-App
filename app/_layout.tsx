@@ -22,13 +22,18 @@ function RootNavigator() {
   const { status } = useAuth();
   const router = useRouter();
 
-  // Tap-to-deep-link: notification data carries an order_id, and every push
-  // points at the existing order-detail screen — no new screen needed.
+  // Tap-to-deep-link: order pushes carry order_id, announcement pushes carry
+  // announcement_id — each routes straight to its detail screen.
   useEffect(() => {
     const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data as { order_id?: number | string };
+      const data = response.notification.request.content.data as {
+        order_id?: number | string;
+        announcement_id?: string;
+      };
       if (data.order_id != null) {
         router.push(`/orders/${data.order_id}`);
+      } else if (data.announcement_id != null) {
+        router.push(`/announcements/${data.announcement_id}`);
       }
     });
     return () => subscription.remove();

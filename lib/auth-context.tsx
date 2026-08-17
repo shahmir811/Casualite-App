@@ -64,6 +64,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await unregisterPushToken();
+    // Best-effort — a network failure here shouldn't trap the customer in a
+    // signed-in state. The token is cleared locally regardless; it just
+    // stays valid server-side until it naturally goes unused.
+    try {
+      await apiClient.post('/api/auth/logout');
+    } catch (err) {
+      console.warn('[auth] Failed to revoke session token', err);
+    }
     setAuthToken(null);
     await clearStoredToken();
     setCustomer(null);

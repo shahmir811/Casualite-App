@@ -19,6 +19,8 @@ export default function HomeScreen() {
         <NavRow icon="receipt-outline" label="My Orders" onPress={() => router.push('/orders')} />
         <View style={styles.navDivider} />
         <NavRow icon="wallet-outline" label="Account & Ledger" onPress={() => router.push('/ledger')} />
+        <View style={styles.navDivider} />
+        <NavRow icon="megaphone-outline" label="Announcements" onPress={() => router.push('/announcements')} />
       </View>
 
       <Pressable onPress={logout} hitSlop={8}>

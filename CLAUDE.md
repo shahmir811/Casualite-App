@@ -176,13 +176,18 @@ requests send `Authorization: Bearer <token>` and `Accept: application/json`.
 | GET | `/api/me` | Profile, balance, advance credit |
 | GET | `/api/catalogues` | Open catalogues with covers |
 | GET | `/api/catalogues/{id}` | Designs, photos, pricing |
+| POST | `/api/catalogues/{id}/quote` | Price a prospective order without writing it — calls `OrderPlacementService::quote()` |
 | POST | `/api/orders` | Place order (collective quantity model) |
 | GET | `/api/orders` | Order history with status |
 | GET | `/api/orders/{id}` | Full breakdown, activity, dispatch |
 | GET | `/api/ledger` | Dated statement |
-| GET | `/api/announcements` | Announcement history |
-| POST | `/api/devices` | Register Expo push token |
-| DELETE | `/api/devices` | Deregister on sign-out |
+| GET | `/api/announcements` | Announcement history — **not yet built** |
+| POST | `/api/push-tokens` | Register Expo push token |
+| DELETE | `/api/push-tokens` | Deregister on sign-out |
+
+Note: earlier drafts of this doc called the last two `/api/devices` — the shipped Laravel
+route and the RN client (`lib/push-notifications.ts`) both use `/api/push-tokens`. Use that
+name.
 
 ### Order placement error codes
 
@@ -273,9 +278,6 @@ building real screens — don't build around them.
 
 ## 9. Known gotchas
 
-- **`app.json` has no `ios.bundleIdentifier` or `android.package` yet.** Both must be set to
-  `com.techmint.casualite` before the first EAS build. Also change `name` to `Casualite` —
-  it's currently `casualite-app`, which would ship as the home-screen label.
 - **Never run `npm` under `sudo`.** It leaves root-owned files in `~/.npm` that break every
   later install. If permissions fail, fix ownership: `sudo chown -R $(whoami) ~/.npm`.
 - **Do not run `npm audit fix --force`.** It installs breaking major versions and destroys
@@ -310,11 +312,28 @@ npm run reset-project       # remove the template's demo screens
 ## 11. Status
 
 - **Phase 1 — environment:** done. Scaffolded on SDK 54, running on a physical Android
-  phone and iPhone via Expo Go. Expo account/organization and first EAS build still to do.
-- **Phase 2 — backend API:** in progress. `OrderPlacementService` extracted (done);
-  `POST /api/auth/verify` and `GET /api/me` built and tested. Catalogues, orders, ledger,
-  announcements and devices endpoints still to build.
-- **Phase 3 — app build:** not started.
-- **Phase 4 — push + development build + SDK bump:** not started.
+  phone and iPhone via Expo Go. EAS project linked (`casualiteos`), `app.json` carries the
+  final bundle identifiers, and an Android development build has been built and installed
+  on a physical device.
+- **Phase 2 — backend API:** mostly done. `OrderPlacementService` extracted; `/api/auth/verify`,
+  `/api/auth/logout`, `/api/me`, `/api/catalogues`, `/api/catalogues/{id}`,
+  `/api/catalogues/{id}/quote`, `/api/orders`, `/api/orders/{id}`, `/api/ledger` and
+  `/api/push-tokens` (POST + DELETE) are built and consumed by the app. **Not yet built: an
+  announcements endpoint.**
+- **Phase 3 — app build:** in progress. Modules 01 (Authentication), 02 (Account & Orders)
+  and 03 (Catalogue & Ordering) are built. Modules 04 (Announcements) and 05 (Settings) do
+  not have screens yet — only the push-notification plumbing behind Module 04 exists so far.
+- **Phase 4 — push + development build + SDK bump:** push notifications are fully working
+  on Android — permission request, token registration/deregistration, foreground handling,
+  tap-to-deep-link, silent resync on cold start/foreground — verified end-to-end on a
+  physical device, with FCM V1 credentials uploaded via `eas credentials`. iOS push is
+  blocked on Apple Developer Program enrolment ($99/yr) — not started. The SDK 54 → current
+  bump has not started.
+
+**Sign-out now revokes the token.** `POST /api/auth/logout` (Sanctum-guarded) exists on the
+Laravel side and deletes only the token used for that request — other devices stay signed
+in. `lib/auth-context.tsx`'s `logout()` calls it before clearing local state, best-effort
+(a network failure logs and still clears local state rather than trapping the customer in a
+signed-in view). Covered by `casualos/tests/Feature/Api/AuthTest.php`.
 
 The full six-phase checklist is `../Mobile-App-Development-Plan.md`. Keep it current.

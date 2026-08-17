@@ -43,10 +43,19 @@ export function useApiQuery<T>(path: string | null) {
     fetchData(false);
   }, [fetchData]);
 
+  // Stable identities (as long as fetchData is, which holds unless path or
+  // logout change) — callers that put refetch/onRefresh in a dependency
+  // array, e.g. useFocusEffect, would otherwise re-fire on every render:
+  // a new inline arrow here on each render looks like a changed dependency,
+  // re-running the effect, calling refetch, causing the very re-render that
+  // changes the dependency again.
+  const refetch = useCallback(() => fetchData(false), [fetchData]);
+  const onRefresh = useCallback(() => fetchData(true), [fetchData]);
+
   return {
     state,
     refreshing,
-    refetch: () => fetchData(false),
-    onRefresh: () => fetchData(true),
+    refetch,
+    onRefresh,
   };
 }
