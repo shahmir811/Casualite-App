@@ -1,4 +1,6 @@
+import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
+import { useCallback, useRef } from 'react';
 import { FlatList, RefreshControl, StyleSheet } from 'react-native';
 
 import { CatalogueCard } from '@/components/catalogue-card';
@@ -11,6 +13,21 @@ export default function CataloguesScreen() {
   const router = useRouter();
   const { state, refreshing, refetch, onRefresh } = useApiQuery<{ catalogues: CatalogueSummary[] }>(
     '/api/catalogues'
+  );
+
+  // Refetch whenever this screen regains focus (e.g. back from placing an
+  // order) so already_ordered reflects the order that was just placed.
+  // Skips the very first focus — useApiQuery's own effect already fetches
+  // on mount, so firing here too would double the request on initial load.
+  const isFirstFocus = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (isFirstFocus.current) {
+        isFirstFocus.current = false;
+        return;
+      }
+      refetch();
+    }, [refetch])
   );
 
   if (state.status === 'loading') return <LoadingView />;

@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DesignTile } from '@/components/design-tile';
 import { QuantityStepperRow } from '@/components/quantity-stepper-row';
@@ -19,6 +20,7 @@ export default function CatalogueDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { logout } = useAuth();
+  const insets = useSafeAreaInsets();
   const catalogueId = id ? Number(id) : null;
 
   const { state, refetch } = useApiQuery<{ catalogue: CatalogueDetail }>(id ? `/api/catalogues/${id}` : null);
@@ -95,7 +97,10 @@ export default function CatalogueDetailScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingBottom: Spacing.md + insets.bottom + Spacing.lg }]}
+      keyboardShouldPersistTaps="handled">
       <View style={styles.designGrid}>
         {catalogue.designs.map((design) => (
           <DesignTile key={design.id} design={design} />

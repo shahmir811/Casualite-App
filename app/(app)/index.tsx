@@ -6,7 +6,7 @@ import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 
 export default function HomeScreen() {
-  const { customer, logout } = useAuth();
+  const { customer } = useAuth();
   const router = useRouter();
 
   return (
@@ -21,11 +21,9 @@ export default function HomeScreen() {
         <NavRow icon="wallet-outline" label="Account & Ledger" onPress={() => router.push('/ledger')} />
         <View style={styles.navDivider} />
         <NavRow icon="megaphone-outline" label="Announcements" onPress={() => router.push('/announcements')} />
+        <View style={styles.navDivider} />
+        <NavRow icon="settings-outline" label="Settings" onPress={() => router.push('/settings')} />
       </View>
-
-      <Pressable onPress={logout} hitSlop={8}>
-        {({ pressed }) => <Text style={[styles.signOut, pressed && styles.signOutPressed]}>Sign out</Text>}
-      </Pressable>
     </View>
   );
 }
@@ -89,13 +87,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: Typography.weightMedium,
     color: Colors.textPrimary,
-  },
-  signOut: {
-    fontSize: 15,
-    fontWeight: Typography.weightMedium,
-    color: Colors.accent,
-  },
-  signOutPressed: {
-    opacity: 0.6,
   },
 });
