@@ -147,6 +147,7 @@ export type Announcement = {
   title: string;
   body: string;
   image_url: string | null;
+  image_urls: string[];
   sent_at: string;
   read_at: string | null;
 };

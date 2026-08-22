@@ -1,7 +1,16 @@
 import { useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
-import { useEffect, useRef } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Dimensions,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { EmptyView, ErrorView, LoadingView } from '@/components/state-views';
 import { Colors, Spacing, Typography } from '@/constants/theme';
@@ -42,17 +51,80 @@ export default function AnnouncementDetailScreen() {
     return <EmptyView message="This announcement is no longer available." />;
   }
 
+  const images = announcement.image_urls?.length
+    ? announcement.image_urls
+    : announcement.image_url
+      ? [announcement.image_url]
+      : [];
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {announcement.image_url ? (
-        <Image source={{ uri: announcement.image_url }} style={styles.image} contentFit="cover" />
-      ) : null}
+      {images.length > 0 ? <ImageGallery images={images} /> : null}
       <View style={styles.section}>
         <Text style={styles.title}>{announcement.title}</Text>
         <Text style={styles.date}>{formatDateTime(announcement.sent_at)}</Text>
         <Text style={styles.body}>{announcement.body}</Text>
       </View>
     </ScrollView>
+  );
+}
+
+function ImageGallery({ images }: { images: string[] }) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const screenWidth = Dimensions.get('window').width;
+
+  const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const index = Math.round(event.nativeEvent.contentOffset.x / screenWidth);
+    setActiveIndex(index);
+  };
+
+  return (
+    <View>
+      <ScrollView
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+      >
+        {images.map((uri) => (
+          <GalleryImage key={uri} uri={uri} width={screenWidth} />
+        ))}
+      </ScrollView>
+      {images.length > 1 ? (
+        <View style={styles.dots}>
+          {images.map((uri, index) => (
+            <View key={uri} style={[styles.dot, index === activeIndex && styles.dotActive]} />
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function GalleryImage({ uri, width }: { uri: string; width: number }) {
+  const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
+
+  return (
+    <View style={[styles.image, { width }]}>
+      <Image
+        source={{ uri }}
+        style={StyleSheet.absoluteFill}
+        contentFit="cover"
+        onLoad={() => setStatus('loaded')}
+        onError={() => setStatus('error')}
+      />
+      {status === 'loading' ? (
+        <View style={styles.imageOverlay}>
+          <ActivityIndicator color={Colors.accent} />
+        </View>
+      ) : null}
+      {status === 'error' ? (
+        <View style={styles.imageOverlay}>
+          <Text style={styles.imageErrorText}>Couldn&apos;t load image</Text>
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -65,9 +137,33 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.xl,
   },
   image: {
-    width: '100%',
     aspectRatio: 16 / 9,
     backgroundColor: Colors.divider,
+  },
+  imageOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imageErrorText: {
+    fontSize: 13,
+    fontWeight: Typography.weightRegular,
+    color: Colors.textTertiary,
+  },
+  dots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    marginTop: Spacing.sm,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.divider,
+  },
+  dotActive: {
+    backgroundColor: Colors.accent,
   },
   section: {
     padding: Spacing.md,
