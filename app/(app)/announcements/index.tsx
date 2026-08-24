@@ -1,11 +1,11 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useCallback, useRef } from 'react';
-import { FlatList, RefreshControl, StyleSheet } from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { AnnouncementCard } from '@/components/announcement-card';
 import { EmptyView, ErrorView, LoadingView } from '@/components/state-views';
-import { Colors, Spacing } from '@/constants/theme';
+import { Colors } from '@/constants/theme';
 import { Announcement } from '@/lib/types';
 import { useApiQuery } from '@/lib/use-api-query';
 
@@ -58,16 +58,16 @@ export default function AnnouncementsScreen() {
       renderItem={({ item }) => (
         <AnnouncementCard announcement={item} onPress={() => router.push(`/announcements/${item.id}`)} />
       )}
-      contentContainerStyle={styles.list}
+      ItemSeparatorComponent={() => <View style={styles.separator} />}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
     />
   );
 }
 
 const styles = StyleSheet.create({
-  list: {
-    padding: Spacing.md,
-    gap: Spacing.sm,
+  separator: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: Colors.divider,
   },
   emptyContainer: {
     flexGrow: 1,

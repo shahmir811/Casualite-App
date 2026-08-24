@@ -26,6 +26,21 @@ export function formatDateTime(iso: string): string {
   });
 }
 
+// Twitter-style short relative timestamp for the announcements timeline —
+// falls back to an absolute date once it's more than a week old, since
+// "23d" stops being a useful unit at that point.
+export function formatRelativeTime(iso: string): string {
+  const seconds = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (seconds < 60) return 'now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d`;
+  return formatDate(iso);
+}
+
 // Labels kept in sync with the existing web portal so status reads the same
 // in both places — see CLAUDE.md §9.
 const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {

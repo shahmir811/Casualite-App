@@ -1,69 +1,89 @@
+import { Image } from 'expo-image';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
-import { formatDate } from '@/lib/format';
+import { formatRelativeTime } from '@/lib/format';
 import { Announcement } from '@/lib/types';
 
 export function AnnouncementCard({ announcement, onPress }: { announcement: Announcement; onPress: () => void }) {
   const isUnread = announcement.read_at === null;
+  const image = announcement.image_urls?.[0] ?? announcement.image_url;
 
   return (
-    <Pressable style={({ pressed }) => [styles.card, pressed && styles.cardPressed]} onPress={onPress}>
-      <View style={styles.topRow}>
-        {isUnread ? <View style={styles.unreadDot} /> : null}
-        <Text style={[styles.title, isUnread && styles.titleUnread]} numberOfLines={1}>
-          {announcement.title}
+    <Pressable style={({ pressed }) => [styles.row, pressed && styles.rowPressed]} onPress={onPress}>
+      <View style={isUnread ? styles.unreadDot : styles.unreadDotSpacer} />
+      <View style={styles.content}>
+        <View style={styles.topRow}>
+          <Text style={[styles.title, isUnread && styles.titleUnread]} numberOfLines={1}>
+            {announcement.title}
+          </Text>
+          <Text style={styles.time}>{formatRelativeTime(announcement.sent_at)}</Text>
+        </View>
+        <Text style={styles.body} numberOfLines={4}>
+          {announcement.body}
         </Text>
+        {image ? <Image source={{ uri: image }} style={styles.image} contentFit="cover" /> : null}
       </View>
-      <Text style={styles.body} numberOfLines={2}>
-        {announcement.body}
-      </Text>
-      <Text style={styles.date}>{formatDate(announcement.sent_at)}</Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.card,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.md,
-    gap: 4,
-  },
-  cardPressed: {
-    backgroundColor: Colors.surfacePressed,
-  },
-  topRow: {
+  row: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm + 4,
+    backgroundColor: Colors.surface,
+  },
+  rowPressed: {
+    backgroundColor: Colors.surfacePressed,
   },
   unreadDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: Colors.accent,
+    marginTop: 7,
+  },
+  unreadDotSpacer: {
+    width: 8,
+  },
+  content: {
+    flex: 1,
+    gap: 4,
+  },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.xs,
   },
   title: {
+    flexShrink: 1,
     fontSize: 16,
     fontWeight: Typography.weightMedium,
     color: Colors.textPrimary,
-    flexShrink: 1,
   },
   titleUnread: {
     fontWeight: Typography.weightSemibold,
   },
-  body: {
-    fontSize: 14,
-    fontWeight: Typography.weightRegular,
-    color: Colors.textSecondary,
-  },
-  date: {
+  time: {
     fontSize: 13,
     fontWeight: Typography.weightRegular,
     color: Colors.textTertiary,
-    marginTop: 2,
+  },
+  body: {
+    fontSize: 15,
+    fontWeight: Typography.weightRegular,
+    color: Colors.textSecondary,
+    lineHeight: 21,
+  },
+  image: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    borderRadius: Radius.card,
+    backgroundColor: Colors.divider,
+    marginTop: 4,
   },
 });
