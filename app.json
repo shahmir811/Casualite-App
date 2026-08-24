@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "casualite-app",
-    "slug": "casualite-app",
+    "name": "Casualite",
+    "slug": "casualiteos",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -9,9 +9,12 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.techmint.casualite"
     },
     "android": {
+      "package": "com.techmint.casualite",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -39,11 +42,19 @@
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "787a85ef-43bf-4f3a-84eb-d276cbcd178c"
+      }
+    },
+    "owner": "the-techmint"
   }
 }

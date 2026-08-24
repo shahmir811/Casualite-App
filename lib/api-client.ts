@@ -2,10 +2,15 @@ const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
 export class ApiError extends Error {
   status: number;
+  // Stable string code from the backend (e.g. "catalogue_closed",
+  // "duplicate_order") for callers that need to branch on the failure
+  // reason rather than just showing `message`.
+  reason?: string;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, reason?: string) {
     super(message);
     this.status = status;
+    this.reason = reason;
   }
 }
 
@@ -18,7 +23,7 @@ export function setAuthToken(token: string | null) {
 }
 
 type RequestOptions = {
-  method?: 'GET' | 'POST';
+  method?: 'GET' | 'POST' | 'DELETE';
   body?: unknown;
 };
 
@@ -52,7 +57,11 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       data && typeof data === 'object' && typeof (data as { message?: unknown }).message === 'string'
         ? (data as { message: string }).message
         : 'Something went wrong. Please try again.';
-    throw new ApiError(message, response.status);
+    const reason =
+      data && typeof data === 'object' && typeof (data as { reason?: unknown }).reason === 'string'
+        ? (data as { reason: string }).reason
+        : undefined;
+    throw new ApiError(message, response.status, reason);
   }
 
   return data as T;
@@ -61,4 +70,5 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 export const apiClient = {
   get: <T>(path: string) => request<T>(path, { method: 'GET' }),
   post: <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body }),
+  delete: <T>(path: string, body?: unknown) => request<T>(path, { method: 'DELETE', body }),
 };

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "717834332053",
+    "project_id": "casualite-9ae11",
+    "storage_bucket": "casualite-9ae11.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:717834332053:android:2942b12d3293776d89389c",
+        "android_client_info": {
+          "package_name": "com.techmint.casualite"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyANcYPwwUtqZdLnWywFzo1DEXT-Z4DJGkk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

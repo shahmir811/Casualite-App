@@ -1,10 +1,13 @@
-import { Stack } from 'expo-router';
+import * as Notifications from 'expo-notifications';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { ActivityIndicator, AppState, StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
 
 import { Colors } from '@/constants/theme';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
+import { syncPushTokenIfGranted } from '@/lib/push-notifications';
 
 export default function RootLayout() {
   return (
@@ -17,6 +20,37 @@ export default function RootLayout() {
 
 function RootNavigator() {
   const { status } = useAuth();
+  const router = useRouter();
+
+  // Tap-to-deep-link: order pushes carry order_id, announcement pushes carry
+  // announcement_id — each routes straight to its detail screen.
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as {
+        order_id?: number | string;
+        announcement_id?: string;
+      };
+      if (data.order_id != null) {
+        router.push(`/orders/${data.order_id}`);
+      } else if (data.announcement_id != null) {
+        router.push(`/announcements/${data.announcement_id}`);
+      }
+    });
+    return () => subscription.remove();
+  }, [router]);
+
+  // Expo push tokens can occasionally rotate — re-sync (silently, no
+  // permission prompt) whenever the app comes back to the foreground.
+  const appState = useRef(AppState.currentState);
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (appState.current.match(/inactive|background/) && nextState === 'active' && status === 'authenticated') {
+        void syncPushTokenIfGranted();
+      }
+      appState.current = nextState;
+    });
+    return () => subscription.remove();
+  }, [status]);
 
   if (status === 'loading') {
     return (
