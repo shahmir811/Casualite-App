@@ -1,11 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
+import * as Notifications from 'expo-notifications';
 import { useCallback, useEffect, useRef } from 'react';
 import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
+import { setBadgeCount } from '@/lib/push-notifications';
 import { Announcement } from '@/lib/types';
 import { useApiQuery } from '@/lib/use-api-query';
 
@@ -17,7 +19,26 @@ export default function HomeScreen() {
   // "any unread" is just a client-side check over the full list, so no
   // dedicated unread-count endpoint is needed.
   const { state, refetch } = useApiQuery<{ announcements: Announcement[] }>('/api/announcements');
-  const hasUnread = state.status === 'success' && state.data.announcements.some((a) => a.read_at === null);
+  const unreadCount = state.status === 'success' ? state.data.announcements.filter((a) => a.read_at === null).length : 0;
+  const hasUnread = unreadCount > 0;
+
+  // Home stays mounted for the lifetime of the signed-in session (see the
+  // AppState effect below), which makes it the one place that reliably sees
+  // every unread-count change — keep the app icon badge in sync here rather
+  // than duplicating this in each screen that happens to refetch the list.
+  useEffect(() => {
+    if (state.status === 'success') {
+      void setBadgeCount(unreadCount);
+    }
+  }, [state.status, unreadCount]);
+
+  // A push arriving while the app is already in the foreground doesn't fire
+  // the AppState 'active' transition below, so without this the unread count
+  // (and badge) would stay stale until the next manual refresh.
+  useEffect(() => {
+    const subscription = Notifications.addNotificationReceivedListener(() => refetch());
+    return () => subscription.remove();
+  }, [refetch]);
 
   // Refetch on regaining focus (e.g. back from Announcements after reading)
   // and skip the very first focus — the mount effect inside useApiQuery

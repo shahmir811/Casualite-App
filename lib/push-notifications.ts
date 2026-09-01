@@ -7,6 +7,12 @@ import { apiClient } from '@/lib/api-client';
 // Expo doesn't show a system alert for a notification that arrives while the
 // app is in the foreground unless a handler opts in explicitly. Set once at
 // module load, which runs before anything else touches this file.
+//
+// shouldSetBadge stays false: the app icon badge is driven by setBadgeCount
+// below, computed from the actual number of unread announcements, not from
+// the OS's per-notification default (which only knows how to increment a
+// counter and would drift out of sync the moment something is marked read
+// elsewhere in the app).
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
@@ -15,6 +21,18 @@ Notifications.setNotificationHandler({
     shouldSetBadge: false,
   }),
 });
+
+// Sets the app icon badge to the given count. Call with the real unread
+// count whenever it's known (e.g. after fetching announcements), not as an
+// increment/decrement, so the number on the icon always matches what's
+// actually unread.
+export async function setBadgeCount(count: number): Promise<void> {
+  try {
+    await Notifications.setBadgeCountAsync(count);
+  } catch (err) {
+    console.warn('[push] Failed to set badge count', err);
+  }
+}
 
 // Tracked so logout can unregister the exact token this device last
 // registered, without re-deriving it.

@@ -1,7 +1,12 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 
 import { apiClient, ApiError, setAuthToken } from '@/lib/api-client';
-import { requestPushPermissionAndRegister, syncPushTokenIfGranted, unregisterPushToken } from '@/lib/push-notifications';
+import {
+  requestPushPermissionAndRegister,
+  setBadgeCount,
+  syncPushTokenIfGranted,
+  unregisterPushToken,
+} from '@/lib/push-notifications';
 import { clearStoredToken, getStoredToken, setStoredToken } from '@/lib/secure-storage';
 import { Customer } from '@/lib/types';
 
@@ -76,6 +81,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await clearStoredToken();
     setCustomer(null);
     setStatus('unauthenticated');
+    // Shared devices shouldn't carry one customer's unread count into the
+    // next customer's session.
+    void setBadgeCount(0);
   }, []);
 
   return <AuthContext.Provider value={{ status, customer, login, logout }}>{children}</AuthContext.Provider>;
