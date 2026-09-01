@@ -85,14 +85,14 @@ This is the agreed contract scope. Nothing outside it gets built without a chang
 | 02 | **Account & Orders** | Payment status, outstanding balance, advance credit, order history with expandable detail — activity trail, pieces with photos and sizes, dispatch batches, shipping address |
 | 03 | **Catalogue & Ordering** | Browse open catalogues with cover photos and designs, size-wise quantity entry, live order value, place order with confirmation |
 | 04 | **Announcements** | Push notifications, in-app announcement history. (The admin sending interface is built in CasualOS, not here.) |
-| 05 | **Settings** | Notification preferences, sign out, app version, account deletion request |
+| 05 | **Settings** | Notification preferences, sign out, app version |
 
 **Module 02 is one scrolling screen with expandable order cards**, mirroring
 `../casualos/resources/views/portal/dashboard.blade.php`. Do not split it into four screens.
 
-**Account deletion request in Settings is deliberate.** Apple frequently rejects apps that
-have accounts but no deletion path. A Settings item that emails Casualite is sufficient and
-cheap insurance.
+**No account deletion request in Settings.** An earlier draft of this scope called for one
+as Apple-rejection insurance; the Casualite owner has since confirmed there is no path to
+delete an account and none is wanted. Do not add one without the owner reopening this.
 
 ---
 
@@ -160,7 +160,7 @@ owner already onboards customers manually over WhatsApp. There is no `password` 
 `customers` (Laravel side).
 
 **On sign-out:** revoke the token via `POST /api/auth/logout`, deregister the push token via
-`DELETE /api/devices`, and clear secure storage. All three, or the user keeps getting pushes.
+`DELETE /api/push-tokens`, and clear secure storage. All three, or the user keeps getting pushes.
 
 ---
 
@@ -176,13 +176,19 @@ requests send `Authorization: Bearer <token>` and `Accept: application/json`.
 | GET | `/api/me` | Profile, balance, advance credit |
 | GET | `/api/catalogues` | Open catalogues with covers |
 | GET | `/api/catalogues/{id}` | Designs, photos, pricing |
+| POST | `/api/catalogues/{id}/quote` | Price a prospective order without writing it — calls `OrderPlacementService::quote()` |
 | POST | `/api/orders` | Place order (collective quantity model) |
 | GET | `/api/orders` | Order history with status |
 | GET | `/api/orders/{id}` | Full breakdown, activity, dispatch |
 | GET | `/api/ledger` | Dated statement |
 | GET | `/api/announcements` | Announcement history |
-| POST | `/api/devices` | Register Expo push token |
-| DELETE | `/api/devices` | Deregister on sign-out |
+| POST | `/api/announcements/{id}/read` | Mark one announcement read |
+| POST | `/api/push-tokens` | Register Expo push token |
+| DELETE | `/api/push-tokens` | Deregister on sign-out |
+
+Note: earlier drafts of this doc called the last two `/api/devices` — the shipped Laravel
+route and the RN client (`lib/push-notifications.ts`) both use `/api/push-tokens`. Use that
+name.
 
 ### Order placement error codes
 
@@ -263,19 +269,14 @@ lib/ or services/    API client, secure storage, formatters
 - **Every string shown to a customer** should read as the portal reads — plain, calm, no
   developer jargon in error messages.
 
-### The scaffold still contains Expo's demo content
-
-`app/(tabs)/`, `components/hello-wave.tsx`, `parallax-scroll-view.tsx`, `themed-text.tsx`
-and friends are template boilerplate. Run `npm run reset-project` or delete them before
-building real screens — don't build around them.
+Expo's demo scaffolding (`app/(tabs)/`, `hello-wave.tsx`, `parallax-scroll-view.tsx`,
+`themed-text.tsx` and friends) has already been removed. If it ever reappears from a
+template regeneration, delete it rather than building around it.
 
 ---
 
 ## 9. Known gotchas
 
-- **`app.json` has no `ios.bundleIdentifier` or `android.package` yet.** Both must be set to
-  `com.techmint.casualite` before the first EAS build. Also change `name` to `Casualite` —
-  it's currently `casualite-app`, which would ship as the home-screen label.
 - **Never run `npm` under `sudo`.** It leaves root-owned files in `~/.npm` that break every
   later install. If permissions fail, fix ownership: `sudo chown -R $(whoami) ~/.npm`.
 - **Do not run `npm audit fix --force`.** It installs breaking major versions and destroys
@@ -310,11 +311,30 @@ npm run reset-project       # remove the template's demo screens
 ## 11. Status
 
 - **Phase 1 — environment:** done. Scaffolded on SDK 54, running on a physical Android
-  phone and iPhone via Expo Go. Expo account/organization and first EAS build still to do.
-- **Phase 2 — backend API:** in progress. `OrderPlacementService` extracted (done);
-  `POST /api/auth/verify` and `GET /api/me` built and tested. Catalogues, orders, ledger,
-  announcements and devices endpoints still to build.
-- **Phase 3 — app build:** not started.
-- **Phase 4 — push + development build + SDK bump:** not started.
+  phone and iPhone via Expo Go. EAS project linked (`casualiteos`), `app.json` carries the
+  final bundle identifiers, and an Android development build has been built and installed
+  on a physical device.
+- **Phase 2 — backend API:** done. `OrderPlacementService` extracted; `/api/auth/verify`,
+  `/api/auth/logout`, `/api/me`, `/api/catalogues`, `/api/catalogues/{id}`,
+  `/api/catalogues/{id}/quote`, `/api/orders`, `/api/orders/{id}`, `/api/ledger`,
+  `/api/announcements` + `/api/announcements/{id}/read`, and `/api/push-tokens`
+  (POST + DELETE) are all built and consumed by the app.
+- **Phase 3 — app build:** done. All five modules have screens: 01 Authentication,
+  02 Account & Orders, 03 Catalogue & Ordering, 04 Announcements (list, detail with
+  swipeable image gallery, unread indicator on Home, mark-as-read on open), and
+  05 Settings (notification status with a link to system settings, sign out, app version —
+  no account deletion item, see §3).
+- **Phase 4 — push + development build + SDK bump:** push notifications are fully working
+  on Android — permission request, token registration/deregistration, foreground handling,
+  tap-to-deep-link (both order and announcement pushes), silent resync on cold start/
+  foreground — verified end-to-end on a physical device, with FCM V1 credentials uploaded
+  via `eas credentials`. iOS push is blocked on Apple Developer Program enrolment ($99/yr) —
+  not started. The SDK 54 → current bump has not started.
+
+**Sign-out revokes the token.** `POST /api/auth/logout` (Sanctum-guarded) exists on the
+Laravel side and deletes only the token used for that request — other devices stay signed
+in. `lib/auth-context.tsx`'s `logout()` calls it before clearing local state, best-effort
+(a network failure logs and still clears local state rather than trapping the customer in a
+signed-in view). Covered by `casualos/tests/Feature/Api/AuthTest.php`.
 
 The full six-phase checklist is `../Mobile-App-Development-Plan.md`. Keep it current.

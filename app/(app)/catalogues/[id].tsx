@@ -90,6 +90,15 @@ export default function CatalogueDetailScreen() {
         ]);
         return;
       }
+      if (err instanceof ApiError && err.reason === 'customer_not_found') {
+        // The account behind this session no longer matches a customer
+        // record server-side — same recovery as a 401, since there's
+        // nothing to retry into.
+        Alert.alert('Account not found', "We couldn't find your account. Please sign in again.", [
+          { text: 'OK', onPress: () => logout() },
+        ]);
+        return;
+      }
       Alert.alert('Something went wrong', err instanceof Error ? err.message : 'Please try again.');
     } finally {
       setSubmitting(false);
