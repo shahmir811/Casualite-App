@@ -328,8 +328,13 @@ npm run reset-project       # remove the template's demo screens
   on Android — permission request, token registration/deregistration, foreground handling,
   tap-to-deep-link (both order and announcement pushes), silent resync on cold start/
   foreground — verified end-to-end on a physical device, with FCM V1 credentials uploaded
-  via `eas credentials`. iOS push is blocked on Apple Developer Program enrolment ($99/yr) —
-  not started. The SDK 54 → current bump has not started.
+  via `eas credentials`. **Apple Developer Program organization enrolment is now approved**
+  (confirmed via Apple's welcome email) — the enrolment blocker is cleared. iOS work itself
+  has not started yet: no APNs key generated, no iOS development build produced, no iOS
+  device testing done. The SDK 54 → current bump has not started either. Next concrete steps
+  are §4.0/§4.1 in `../Mobile-App-Development-Plan.md` — iOS development build via
+  `eas build --profile development --platform ios`, then generating and uploading the APNs
+  key.
 
 **Sign-out revokes the token.** `POST /api/auth/logout` (Sanctum-guarded) exists on the
 Laravel side and deletes only the token used for that request — other devices stay signed
