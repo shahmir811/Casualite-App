@@ -20,7 +20,8 @@
       "ios": {
         "ascApiKeyPath": "./AuthKey_N86M977YAC.p8",
         "ascApiKeyIssuerId": "79280d67-f3b3-4d8e-91a4-af51b589752a",
-        "ascApiKeyId": "N86M977YAC"
+        "ascApiKeyId": "N86M977YAC",
+        "ascAppId": "6808940774"
       }
     }
   }
