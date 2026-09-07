@@ -22,6 +22,10 @@
         "ascApiKeyIssuerId": "79280d67-f3b3-4d8e-91a4-af51b589752a",
         "ascApiKeyId": "N86M977YAC",
         "ascAppId": "6808940774"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./casualite-7ad66bf74107.json",
+        "track": "alpha"
       }
     }
   }
