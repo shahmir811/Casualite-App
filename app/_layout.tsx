@@ -65,6 +65,9 @@ function RootNavigator() {
       <Stack.Protected guard={status === 'authenticated'}>
         <Stack.Screen name="(app)" />
       </Stack.Protected>
+      <Stack.Protected guard={status === 'staff'}>
+        <Stack.Screen name="(staff)" />
+      </Stack.Protected>
       <Stack.Protected guard={status === 'unauthenticated'}>
         <Stack.Screen name="(auth)" />
       </Stack.Protected>

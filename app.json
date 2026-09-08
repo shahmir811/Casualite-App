@@ -45,6 +45,7 @@
       ],
       "expo-secure-store",
       "expo-notifications",
+      "@preeternal/react-native-cookie-manager",
       "./plugins/withAdiRegistration.js"
     ],
     "experiments": {
