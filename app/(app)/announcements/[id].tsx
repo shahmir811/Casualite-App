@@ -12,7 +12,8 @@ import {
   View,
 } from 'react-native';
 
-import { EmptyView, ErrorView, LoadingView } from '@/components/state-views';
+import { Skeleton } from '@/components/skeleton';
+import { EmptyView, ErrorView } from '@/components/state-views';
 import { Colors, Spacing, Typography } from '@/constants/theme';
 import { apiClient } from '@/lib/api-client';
 import { formatDateTime } from '@/lib/format';
@@ -41,14 +42,27 @@ export default function AnnouncementDetailScreen() {
     });
   }, [announcement]);
 
-  if (state.status === 'loading') return <LoadingView />;
+  if (state.status === 'loading') {
+    return (
+      <View style={styles.content}>
+        <Skeleton width="100%" height={220} radius={0} />
+        <View style={styles.section}>
+          <Skeleton width="70%" height={22} radius={4} />
+          <Skeleton width={100} height={13} radius={4} />
+          <Skeleton width="100%" height={13} radius={4} style={{ marginTop: 4 }} />
+          <Skeleton width="90%" height={13} radius={4} />
+          <Skeleton width="60%" height={13} radius={4} />
+        </View>
+      </View>
+    );
+  }
 
   if (state.status === 'error') {
     return <ErrorView message={state.error.message} onRetry={refetch} />;
   }
 
   if (!announcement) {
-    return <EmptyView message="This announcement is no longer available." />;
+    return <EmptyView icon="megaphone-outline" message="This announcement is no longer available." />;
   }
 
   const images = announcement.image_urls?.length

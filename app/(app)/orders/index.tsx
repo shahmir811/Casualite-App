@@ -1,8 +1,9 @@
 import { useRouter } from 'expo-router';
-import { FlatList, RefreshControl, StyleSheet } from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { OrderCard } from '@/components/order-card';
-import { EmptyView, ErrorView, LoadingView } from '@/components/state-views';
+import { OrderCardSkeleton } from '@/components/skeleton';
+import { EmptyView, ErrorView } from '@/components/state-views';
 import { Colors, Spacing } from '@/constants/theme';
 import { useApiQuery } from '@/lib/use-api-query';
 import { OrderSummary } from '@/lib/types';
@@ -11,7 +12,15 @@ export default function OrdersScreen() {
   const router = useRouter();
   const { state, refreshing, refetch, onRefresh } = useApiQuery<{ orders: OrderSummary[] }>('/api/orders');
 
-  if (state.status === 'loading') return <LoadingView />;
+  if (state.status === 'loading') {
+    return (
+      <View style={styles.list}>
+        {Array.from({ length: 5 }).map((_, index) => (
+          <OrderCardSkeleton key={index} />
+        ))}
+      </View>
+    );
+  }
 
   if (state.status === 'error') {
     return <ErrorView message={state.error.message} onRetry={refetch} />;
@@ -24,7 +33,7 @@ export default function OrdersScreen() {
       <FlatList
         data={[]}
         renderItem={() => null}
-        ListEmptyComponent={<EmptyView message="No orders yet." />}
+        ListEmptyComponent={<EmptyView icon="receipt-outline" message="No orders yet." />}
         contentContainerStyle={styles.emptyContainer}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
       />

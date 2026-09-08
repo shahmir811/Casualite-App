@@ -6,10 +6,11 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DesignPhoto } from '@/components/design-photo';
+import { OrderStatusTracker } from '@/components/order-status-tracker';
 import { Section } from '@/components/section';
 import { SizeBreakdownRow } from '@/components/size-breakdown-row';
-import { StatusBadge } from '@/components/status-badge';
-import { EmptyView, ErrorView, LoadingView } from '@/components/state-views';
+import { Skeleton } from '@/components/skeleton';
+import { EmptyView, ErrorView } from '@/components/state-views';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { ApiError } from '@/lib/api-client';
 import { formatCurrency, formatDate } from '@/lib/format';
@@ -52,11 +53,23 @@ export default function OrderDetailScreen() {
     });
   };
 
-  if (state.status === 'loading') return <LoadingView />;
+  if (state.status === 'loading') {
+    return (
+      <View style={[styles.container, styles.content]}>
+        <View style={styles.header}>
+          <Skeleton width="50%" height={20} radius={4} />
+          <Skeleton width="65%" height={14} radius={4} />
+        </View>
+        <Skeleton width="100%" height={72} radius={Radius.card} />
+        <Skeleton width="100%" height={92} radius={Radius.card} />
+        <Skeleton width="100%" height={140} radius={Radius.card} />
+      </View>
+    );
+  }
 
   if (state.status === 'error') {
     if (state.error instanceof ApiError && state.error.status === 404) {
-      return <EmptyView message="Order not found." />;
+      return <EmptyView icon="receipt-outline" message="Order not found." />;
     }
     return <ErrorView message={state.error.message} onRetry={refetch} />;
   }
@@ -69,13 +82,14 @@ export default function OrderDetailScreen() {
       style={styles.container}
       contentContainerStyle={[styles.content, { paddingBottom: Spacing.md + insets.bottom + Spacing.lg }]}>
       <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <Text style={styles.orderNumber}>Order #{order.order_number}</Text>
-          <StatusBadge status={order.status} />
-        </View>
+        <Text style={styles.orderNumber}>Order #{order.order_number}</Text>
         <Text style={styles.date}>
           {formatDate(order.created_at)} · {order.catalogue.name}
         </Text>
+      </View>
+
+      <View style={styles.card}>
+        <OrderStatusTracker status={order.status} />
       </View>
 
       <View style={styles.card}>
@@ -218,11 +232,6 @@ const styles = StyleSheet.create({
   },
   header: {
     gap: 4,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
   },
   orderNumber: {
     fontSize: 20,

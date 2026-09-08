@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,6 +13,12 @@ import {
 
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
+
+// Cropped and downsized from casualos/public/images/casualite-logo.png (the
+// brand's actual mark, 500dpi source) — trimmed to its bounding box so it
+// sits at a sensible size instead of the huge transparent margin the
+// original export ships with.
+const logoSource = require('../../assets/images/casualite-logo.png');
 
 export default function LoginScreen() {
   const { login } = useAuth();
@@ -40,7 +47,7 @@ export default function LoginScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={styles.content}>
-        <Text style={styles.title}>Sign in to Casualite</Text>
+        <Image source={logoSource} style={styles.logo} contentFit="contain" />
         <Text style={styles.subtitle}>
           Enter the portal link Casualite sent you and the email on your account.
         </Text>
@@ -100,16 +107,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     gap: Spacing.md,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: Typography.weightBold,
-    color: Colors.textPrimary,
+  logo: {
+    width: 220,
+    height: 155,
+    alignSelf: 'center',
+    marginBottom: Spacing.sm,
   },
   subtitle: {
     fontSize: 15,
     fontWeight: Typography.weightRegular,
     color: Colors.textSecondary,
     marginBottom: Spacing.sm,
+    textAlign: 'center',
   },
   field: {
     gap: Spacing.xs,

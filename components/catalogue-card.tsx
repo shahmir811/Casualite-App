@@ -14,7 +14,7 @@ export function CatalogueCard({ catalogue, onPress }: { catalogue: CatalogueSumm
     <Pressable
       style={({ pressed }) => [styles.card, disabled && styles.cardDisabled, pressed && !disabled && styles.cardPressed]}
       onPress={disabled ? undefined : onPress}>
-      <DesignPhoto url={catalogue.cover_photo_url} size={80} />
+      <DesignPhoto url={catalogue.cover_photo_url} size={96} />
       <View style={styles.info}>
         <Text style={styles.name}>{catalogue.name}</Text>
         <Text style={styles.meta}>

@@ -10,7 +10,9 @@ const detailHeaderOptions = {
   headerShown: true,
   headerStyle: { backgroundColor: Colors.surface },
   headerShadowVisible: false,
-  headerTintColor: Colors.accent,
+  // Quiet ink, not the brand gold — gold is reserved for real calls to
+  // action, not chrome like the back button.
+  headerTintColor: Colors.textPrimary,
   headerTitleStyle: { color: Colors.textPrimary, fontWeight: Typography.weightSemibold },
   headerBackTitle: 'Back',
 } as const;
