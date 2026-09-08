@@ -47,17 +47,18 @@ export function Skeleton({
   );
 }
 
-// Mirrors components/catalogue-card.tsx: a 96px cover photo, name line, meta
-// line, and a pill.
-export function CatalogueCardSkeleton() {
+// Mirrors components/catalogue-tile.tsx: same responsive two-column square
+// photo as DesignTileSkeleton, plus a name line, meta line, and a pill.
+export function CatalogueTileSkeleton() {
+  const { width: screenWidth } = useWindowDimensions();
+  const tileWidth = (screenWidth - Spacing.md * 2 - Spacing.md) / 2;
+
   return (
-    <View style={styles.catalogueCard}>
-      <Skeleton width={96} height={96} radius={Radius.chip} />
-      <View style={styles.catalogueInfo}>
-        <Skeleton width="70%" height={17} radius={4} />
-        <Skeleton width={90} height={13} radius={4} style={styles.gapTop} />
-        <Skeleton width={84} height={22} radius={Radius.pill} style={styles.gapTop} />
-      </View>
+    <View style={{ width: tileWidth, gap: 6 }}>
+      <Skeleton width={tileWidth} height={tileWidth} radius={Radius.chip} />
+      <Skeleton width="75%" height={14} radius={4} />
+      <Skeleton width="45%" height={13} radius={4} />
+      <Skeleton width={72} height={20} radius={Radius.pill} />
     </View>
   );
 }
@@ -134,19 +135,6 @@ const styles = StyleSheet.create({
   },
   gapSmTop: {
     marginTop: 6,
-  },
-  catalogueCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.card,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.md,
-  },
-  catalogueInfo: {
-    flex: 1,
   },
   orderCard: {
     backgroundColor: Colors.surface,

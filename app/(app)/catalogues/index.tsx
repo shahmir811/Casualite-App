@@ -3,8 +3,8 @@ import { useRouter } from 'expo-router';
 import { useCallback, useRef } from 'react';
 import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 
-import { CatalogueCard } from '@/components/catalogue-card';
-import { CatalogueCardSkeleton } from '@/components/skeleton';
+import { CatalogueTile } from '@/components/catalogue-tile';
+import { CatalogueTileSkeleton } from '@/components/skeleton';
 import { EmptyView, ErrorView } from '@/components/state-views';
 import { Colors, Spacing } from '@/constants/theme';
 import { CatalogueSummary } from '@/lib/types';
@@ -33,9 +33,9 @@ export default function CataloguesScreen() {
 
   if (state.status === 'loading') {
     return (
-      <View style={styles.list}>
-        {Array.from({ length: 5 }).map((_, index) => (
-          <CatalogueCardSkeleton key={index} />
+      <View style={styles.grid}>
+        {Array.from({ length: 6 }).map((_, index) => (
+          <CatalogueTileSkeleton key={index} />
         ))}
       </View>
     );
@@ -65,8 +65,10 @@ export default function CataloguesScreen() {
     <FlatList
       data={catalogues}
       keyExtractor={(item) => String(item.id)}
+      numColumns={2}
+      columnWrapperStyle={styles.row}
       renderItem={({ item }) => (
-        <CatalogueCard catalogue={item} onPress={() => router.push(`/catalogues/${item.id}`)} />
+        <CatalogueTile catalogue={item} onPress={() => router.push(`/catalogues/${item.id}`)} />
       )}
       contentContainerStyle={styles.list}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
@@ -75,9 +77,18 @@ export default function CataloguesScreen() {
 }
 
 const styles = StyleSheet.create({
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.md,
+    padding: Spacing.md,
+  },
+  row: {
+    gap: Spacing.md,
+  },
   list: {
     padding: Spacing.md,
-    gap: Spacing.sm,
+    gap: Spacing.md,
   },
   emptyContainer: {
     flexGrow: 1,

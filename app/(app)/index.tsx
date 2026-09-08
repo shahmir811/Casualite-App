@@ -3,24 +3,28 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import { useCallback, useEffect, useRef } from 'react';
-import { AppState, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AppState, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AnnouncementCard } from '@/components/announcement-card';
 import { BrandMasthead } from '@/components/brand-masthead';
+import { DesignPhoto } from '@/components/design-photo';
 import { OrderStatusTracker } from '@/components/order-status-tracker';
 import { AnnouncementRowSkeleton, Skeleton } from '@/components/skeleton';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { formatCurrency } from '@/lib/format';
 import { setBadgeCount } from '@/lib/push-notifications';
-import { Announcement, OrderSummary } from '@/lib/types';
+import { Announcement, CatalogueSummary, OrderSummary } from '@/lib/types';
 import { useApiQuery } from '@/lib/use-api-query';
 
 type LedgerSummary = { advance_credit_balance: string };
+const CATALOGUE_TEASER_SIZE = 112;
 
 export default function HomeScreen() {
   const { customer } = useAuth();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   // Reuses the same unpaginated endpoint the Announcements screen fetches —
   // "any unread" is just a client-side check over the full list, so no
@@ -53,6 +57,16 @@ export default function HomeScreen() {
   const latestAnnouncement =
     announcementsState.status === 'success' ? (announcementsState.data.announcements[0] ?? null) : null;
 
+  // Only catalogues an order can actually be placed on — a "come order
+  // these" teaser shouldn't tease ones that are sold out or already ordered.
+  const { state: cataloguesState, refetch: refetchCatalogues } = useApiQuery<{ catalogues: CatalogueSummary[] }>(
+    '/api/catalogues'
+  );
+  const orderableCatalogues =
+    cataloguesState.status === 'success'
+      ? cataloguesState.data.catalogues.filter((c) => !c.sold_out && !c.already_ordered)
+      : [];
+
   // Home stays mounted for the lifetime of the signed-in session (see the
   // AppState effect below), which makes it the one place that reliably sees
   // every unread-count change — keep the app icon badge in sync here rather
@@ -67,7 +81,8 @@ export default function HomeScreen() {
     refetchAnnouncements();
     refetchOrders();
     refetchLedger();
-  }, [refetchAnnouncements, refetchOrders, refetchLedger]);
+    refetchCatalogues();
+  }, [refetchAnnouncements, refetchOrders, refetchLedger, refetchCatalogues]);
 
   // A push arriving while the app is already in the foreground doesn't fire
   // the AppState 'active' transition below, so without this the unread count
@@ -119,7 +134,9 @@ export default function HomeScreen() {
           </Pressable>
         }
       />
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.content, { paddingBottom: Spacing.lg + insets.bottom + Spacing.lg }]}>
       <Text style={styles.greeting}>Welcome, {customer?.name}</Text>
 
       {announcementsState.status === 'loading' ? (
@@ -200,6 +217,46 @@ export default function HomeScreen() {
             <Ionicons name="chevron-forward" size={16} color={Colors.accent} />
           </View>
         </Pressable>
+      ) : null}
+
+      {cataloguesState.status === 'loading' ? (
+        <View style={styles.catalogueSection}>
+          <Skeleton width={130} height={13} radius={4} />
+          <View style={styles.catalogueStrip}>
+            {Array.from({ length: 3 }).map((_, index) => (
+              <View key={index} style={styles.catalogueTeaser}>
+                <Skeleton width={CATALOGUE_TEASER_SIZE} height={CATALOGUE_TEASER_SIZE} radius={Radius.chip} />
+                <Skeleton width="75%" height={12} radius={4} />
+              </View>
+            ))}
+          </View>
+        </View>
+      ) : orderableCatalogues.length > 0 ? (
+        <View style={styles.catalogueSection}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Open Catalogues</Text>
+            <Pressable onPress={() => router.push('/catalogues')} hitSlop={8}>
+              <Text style={styles.sectionLink}>See all</Text>
+            </Pressable>
+          </View>
+          <FlatList
+            data={orderableCatalogues}
+            keyExtractor={(item) => String(item.id)}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.catalogueStrip}
+            renderItem={({ item: catalogue }) => (
+              <Pressable
+                style={({ pressed }) => [styles.catalogueTeaser, pressed && styles.catalogueTeaserPressed]}
+                onPress={() => router.push(`/catalogues/${catalogue.id}`)}>
+                <DesignPhoto url={catalogue.cover_photo_url} size={CATALOGUE_TEASER_SIZE} />
+                <Text style={styles.catalogueTeaserName} numberOfLines={1}>
+                  {catalogue.name}
+                </Text>
+              </Pressable>
+            )}
+          />
+        </View>
       ) : null}
 
       <View style={styles.nav}>
@@ -384,6 +441,40 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: Typography.weightSemibold,
     color: Colors.accent,
+  },
+  catalogueSection: {
+    gap: Spacing.sm,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: Typography.weightSemibold,
+    color: Colors.textPrimary,
+  },
+  sectionLink: {
+    fontSize: 13,
+    fontWeight: Typography.weightSemibold,
+    color: Colors.accent,
+  },
+  catalogueStrip: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  catalogueTeaser: {
+    width: CATALOGUE_TEASER_SIZE,
+    gap: 6,
+  },
+  catalogueTeaserPressed: {
+    opacity: 0.7,
+  },
+  catalogueTeaserName: {
+    fontSize: 12,
+    fontWeight: Typography.weightMedium,
+    color: Colors.textPrimary,
   },
   nav: {
     backgroundColor: Colors.surface,
