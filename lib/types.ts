@@ -14,6 +14,11 @@ export type VerifyResponse =
   | { account_type: 'customer'; token: string; customer: Customer }
   | { account_type: 'staff'; redirect_url: string };
 
+export type SignupResponse = {
+  status: 'pending';
+  message: string;
+};
+
 export type OrderStatus =
   | 'received'
   | 'confirmed'

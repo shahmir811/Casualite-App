@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DesignGalleryViewer } from '@/components/design-gallery-viewer';
@@ -12,6 +12,7 @@ import { Colors, Radius, Spacing, StatusColors, Typography } from '@/constants/t
 import { apiClient, ApiError } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
 import { formatCurrency } from '@/lib/format';
+import { useNotification } from '@/lib/notification-context';
 import { CatalogueDetail, OrderDetail, SizeBreakdown } from '@/lib/types';
 import { useApiQuery } from '@/lib/use-api-query';
 import { QuoteState, useQuote } from '@/lib/use-quote';
@@ -22,6 +23,7 @@ export default function CatalogueDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { logout } = useAuth();
+  const { notify } = useNotification();
   const insets = useSafeAreaInsets();
   const catalogueId = id ? Number(id) : null;
 
@@ -96,27 +98,40 @@ export default function CatalogueDetailScreen() {
         return;
       }
       if (err instanceof ApiError && err.reason === 'catalogue_closed') {
-        Alert.alert('Catalogue closed', 'This catalogue just sold out.', [
-          { text: 'OK', onPress: () => router.replace('/catalogues') },
-        ]);
+        notify({
+          title: 'Catalogue closed',
+          message: 'This catalogue just sold out.',
+          variant: 'error',
+          buttons: [{ text: 'OK', onPress: () => router.replace('/catalogues') }],
+        });
         return;
       }
       if (err instanceof ApiError && err.reason === 'duplicate_order') {
-        Alert.alert('Already ordered', "You've already placed an order on this catalogue.", [
-          { text: 'OK', onPress: () => router.back() },
-        ]);
+        notify({
+          title: 'Already ordered',
+          message: "You've already placed an order on this catalogue.",
+          variant: 'info',
+          buttons: [{ text: 'OK', onPress: () => router.back() }],
+        });
         return;
       }
       if (err instanceof ApiError && err.reason === 'customer_not_found') {
         // The account behind this session no longer matches a customer
         // record server-side — same recovery as a 401, since there's
         // nothing to retry into.
-        Alert.alert('Account not found', "We couldn't find your account. Please sign in again.", [
-          { text: 'OK', onPress: () => logout() },
-        ]);
+        notify({
+          title: 'Account not found',
+          message: "We couldn't find your account. Please sign in again.",
+          variant: 'error',
+          buttons: [{ text: 'OK', onPress: () => logout() }],
+        });
         return;
       }
-      Alert.alert('Something went wrong', err instanceof Error ? err.message : 'Please try again.');
+      notify({
+        title: 'Something went wrong',
+        message: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'error',
+      });
     } finally {
       setSubmitting(false);
     }

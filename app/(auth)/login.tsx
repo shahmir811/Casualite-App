@@ -1,4 +1,5 @@
 import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -24,6 +25,7 @@ const logoSource = require('../../assets/images/casualite-logo.png');
 
 export default function LoginScreen() {
   const { login } = useAuth();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const [portalToken, setPortalToken] = useState('');
   const [email, setEmail] = useState('');
@@ -97,6 +99,12 @@ export default function LoginScreen() {
             <Text style={styles.buttonText}>Sign in</Text>
           )}
         </Pressable>
+
+        <Pressable style={styles.signupLink} onPress={() => router.push('/signup')}>
+          <Text style={styles.signupLinkText}>
+            Don&apos;t have an account? <Text style={styles.signupLinkTextEmphasis}>Sign Up</Text>
+          </Text>
+        </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -165,5 +173,18 @@ const styles = StyleSheet.create({
     color: Colors.surface,
     fontSize: 16,
     fontWeight: Typography.weightSemibold,
+  },
+  signupLink: {
+    alignItems: 'center',
+    paddingVertical: Spacing.sm,
+  },
+  signupLinkText: {
+    fontSize: 14,
+    fontWeight: Typography.weightRegular,
+    color: Colors.textSecondary,
+  },
+  signupLinkTextEmphasis: {
+    fontWeight: Typography.weightSemibold,
+    color: Colors.accent,
   },
 });

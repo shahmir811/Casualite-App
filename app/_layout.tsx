@@ -7,13 +7,16 @@ import 'react-native-reanimated';
 
 import { Colors } from '@/constants/theme';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
+import { NotificationProvider } from '@/lib/notification-context';
 import { syncPushTokenIfGranted } from '@/lib/push-notifications';
 
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <RootNavigator />
-      <StatusBar style="dark" />
+      <NotificationProvider>
+        <RootNavigator />
+        <StatusBar style="dark" />
+      </NotificationProvider>
     </AuthProvider>
   );
 }
