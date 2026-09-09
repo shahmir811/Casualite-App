@@ -1,17 +1,28 @@
+import CookieManager from '@preeternal/react-native-cookie-manager';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 
 import { apiClient, ApiError, setAuthToken } from '@/lib/api-client';
-import { requestPushPermissionAndRegister, syncPushTokenIfGranted, unregisterPushToken } from '@/lib/push-notifications';
+import {
+  requestPushPermissionAndRegister,
+  setBadgeCount,
+  syncPushTokenIfGranted,
+  unregisterPushToken,
+} from '@/lib/push-notifications';
 import { clearStoredToken, getStoredToken, setStoredToken } from '@/lib/secure-storage';
-import { Customer } from '@/lib/types';
+import { Customer, VerifyResponse } from '@/lib/types';
 
-type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
+type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated' | 'staff';
 
 type AuthContextValue = {
   status: AuthStatus;
   customer: Customer | null;
+  staffRedirectUrl: string | null;
   login: (portalToken: string, email: string) => Promise<void>;
   logout: () => Promise<void>;
+  // Called by the (staff) WebView screen once it detects the staff member
+  // has logged out of the website inside the WebView — returns the app to
+  // its own native login screen instead of showing the website's login form.
+  exitStaffSession: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -19,6 +30,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [customer, setCustomer] = useState<Customer | null>(null);
+  const [staffRedirectUrl, setStaffRedirectUrl] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -50,16 +62,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (portalToken: string, email: string) => {
-    const data = await apiClient.post<{ token: string; customer: Customer }>('/api/auth/verify', {
+    const data = await apiClient.post<VerifyResponse>('/api/auth/verify', {
       portal_token: portalToken,
       email,
     });
+
+    if (data.account_type === 'staff') {
+      // No bearer token, no push registration — staff never touch another
+      // /api/* endpoint, they're handed straight to the embedded WebView.
+      setStaffRedirectUrl(data.redirect_url);
+      setStatus('staff');
+      return;
+    }
+
     await setStoredToken(data.token);
     setAuthToken(data.token);
     setCustomer(data.customer);
     setStatus('authenticated');
     // Fresh interactive login — a reasonable moment to ask for permission.
     void requestPushPermissionAndRegister();
+  }, []);
+
+  const exitStaffSession = useCallback(async () => {
+    // Clear the WebView's cookie jar so the next staff login on this device
+    // — possibly a different staff member — never auto-resumes a stale
+    // session before the fresh Auth::login() on the backend even runs.
+    try {
+      await CookieManager.clearAll();
+    } catch (err) {
+      console.warn('[auth] Failed to clear staff WebView cookies', err);
+    }
+    setStaffRedirectUrl(null);
+    setStatus('unauthenticated');
   }, []);
 
   const logout = useCallback(async () => {
@@ -76,9 +110,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await clearStoredToken();
     setCustomer(null);
     setStatus('unauthenticated');
+    // Shared devices shouldn't carry one customer's unread count into the
+    // next customer's session.
+    void setBadgeCount(0);
   }, []);
 
-  return <AuthContext.Provider value={{ status, customer, login, logout }}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ status, customer, staffRedirectUrl, login, logout, exitStaffSession }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

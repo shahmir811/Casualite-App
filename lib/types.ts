@@ -6,6 +6,19 @@ export type Customer = {
   country: string | null;
 };
 
+// Staff (admin/accountant/production_manager/creative_head) sign in through
+// the same form as customers, but never get a bearer token or native
+// screens — they're handed a URL to an embedded WebView showing the real
+// CasualiteOS website, already logged in. See lib/auth-context.tsx.
+export type VerifyResponse =
+  | { account_type: 'customer'; token: string; customer: Customer }
+  | { account_type: 'staff'; redirect_url: string };
+
+export type SignupResponse = {
+  status: 'pending';
+  message: string;
+};
+
 export type OrderStatus =
   | 'received'
   | 'confirmed'

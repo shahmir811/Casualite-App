@@ -1,10 +1,11 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useCallback, useRef } from 'react';
-import { FlatList, RefreshControl, StyleSheet } from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 
-import { CatalogueCard } from '@/components/catalogue-card';
-import { EmptyView, ErrorView, LoadingView } from '@/components/state-views';
+import { CatalogueTile } from '@/components/catalogue-tile';
+import { CatalogueTileSkeleton } from '@/components/skeleton';
+import { EmptyView, ErrorView } from '@/components/state-views';
 import { Colors, Spacing } from '@/constants/theme';
 import { CatalogueSummary } from '@/lib/types';
 import { useApiQuery } from '@/lib/use-api-query';
@@ -30,7 +31,15 @@ export default function CataloguesScreen() {
     }, [refetch])
   );
 
-  if (state.status === 'loading') return <LoadingView />;
+  if (state.status === 'loading') {
+    return (
+      <View style={styles.grid}>
+        {Array.from({ length: 6 }).map((_, index) => (
+          <CatalogueTileSkeleton key={index} />
+        ))}
+      </View>
+    );
+  }
 
   if (state.status === 'error') {
     return <ErrorView message={state.error.message} onRetry={refetch} />;
@@ -43,7 +52,9 @@ export default function CataloguesScreen() {
       <FlatList
         data={[]}
         renderItem={() => null}
-        ListEmptyComponent={<EmptyView message="No catalogues are open right now." />}
+        ListEmptyComponent={
+          <EmptyView icon="pricetags-outline" message="No catalogues are open right now." />
+        }
         contentContainerStyle={styles.emptyContainer}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
       />
@@ -54,8 +65,10 @@ export default function CataloguesScreen() {
     <FlatList
       data={catalogues}
       keyExtractor={(item) => String(item.id)}
+      numColumns={2}
+      columnWrapperStyle={styles.row}
       renderItem={({ item }) => (
-        <CatalogueCard catalogue={item} onPress={() => router.push(`/catalogues/${item.id}`)} />
+        <CatalogueTile catalogue={item} onPress={() => router.push(`/catalogues/${item.id}`)} />
       )}
       contentContainerStyle={styles.list}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
@@ -64,9 +77,18 @@ export default function CataloguesScreen() {
 }
 
 const styles = StyleSheet.create({
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.md,
+    padding: Spacing.md,
+  },
+  row: {
+    gap: Spacing.md,
+  },
   list: {
     padding: Spacing.md,
-    gap: Spacing.sm,
+    gap: Spacing.md,
   },
   emptyContainer: {
     flexGrow: 1,

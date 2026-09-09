@@ -4,7 +4,8 @@ import { useCallback, useRef } from 'react';
 import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { AnnouncementCard } from '@/components/announcement-card';
-import { EmptyView, ErrorView, LoadingView } from '@/components/state-views';
+import { AnnouncementRowSkeleton } from '@/components/skeleton';
+import { EmptyView, ErrorView } from '@/components/state-views';
 import { Colors } from '@/constants/theme';
 import { Announcement } from '@/lib/types';
 import { useApiQuery } from '@/lib/use-api-query';
@@ -31,7 +32,15 @@ export default function AnnouncementsScreen() {
     }, [refetch])
   );
 
-  if (state.status === 'loading') return <LoadingView />;
+  if (state.status === 'loading') {
+    return (
+      <View>
+        {Array.from({ length: 6 }).map((_, index) => (
+          <AnnouncementRowSkeleton key={index} />
+        ))}
+      </View>
+    );
+  }
 
   if (state.status === 'error') {
     return <ErrorView message={state.error.message} onRetry={refetch} />;
@@ -44,7 +53,7 @@ export default function AnnouncementsScreen() {
       <FlatList
         data={[]}
         renderItem={() => null}
-        ListEmptyComponent={<EmptyView message="No announcements yet." />}
+        ListEmptyComponent={<EmptyView icon="megaphone-outline" message="No announcements yet." />}
         contentContainerStyle={styles.emptyContainer}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
       />

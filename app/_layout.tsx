@@ -7,13 +7,16 @@ import 'react-native-reanimated';
 
 import { Colors } from '@/constants/theme';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
+import { NotificationProvider } from '@/lib/notification-context';
 import { syncPushTokenIfGranted } from '@/lib/push-notifications';
 
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <RootNavigator />
-      <StatusBar style="dark" />
+      <NotificationProvider>
+        <RootNavigator />
+        <StatusBar style="dark" />
+      </NotificationProvider>
     </AuthProvider>
   );
 }
@@ -64,6 +67,9 @@ function RootNavigator() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Protected guard={status === 'authenticated'}>
         <Stack.Screen name="(app)" />
+      </Stack.Protected>
+      <Stack.Protected guard={status === 'staff'}>
+        <Stack.Screen name="(staff)" />
       </Stack.Protected>
       <Stack.Protected guard={status === 'unauthenticated'}>
         <Stack.Screen name="(auth)" />

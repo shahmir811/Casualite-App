@@ -20,8 +20,15 @@ export function useApiQuery<T>(path: string | null) {
   const fetchData = useCallback(
     async (isRefresh: boolean) => {
       if (!path) return;
-      if (isRefresh) setRefreshing(true);
-      else setState({ status: 'loading' });
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        // A background refetch (e.g. the focus-triggered one on the
+        // announcements list) shouldn't blank out content that's already
+        // on screen — only show the full-screen loader when there's
+        // nothing successful to keep displaying yet.
+        setState((prev) => (prev.status === 'success' ? prev : { status: 'loading' }));
+      }
 
       try {
         const data = await apiClient.get<T>(path);
@@ -31,7 +38,13 @@ export function useApiQuery<T>(path: string | null) {
           await logout();
           return;
         }
-        setState({ status: 'error', error: err instanceof Error ? err : new Error('Something went wrong.') });
+        // Same reasoning: a failed background refresh shouldn't replace
+        // already-displayed data with an error screen.
+        setState((prev) =>
+          prev.status === 'success'
+            ? prev
+            : { status: 'error', error: err instanceof Error ? err : new Error('Something went wrong.') }
+        );
       } finally {
         if (isRefresh) setRefreshing(false);
       }

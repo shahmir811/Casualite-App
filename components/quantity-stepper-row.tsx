@@ -31,8 +31,8 @@ export function QuantityStepperRow({
             <Pressable
               style={({ pressed }) => [styles.stepButton, pressed && styles.stepButtonPressed]}
               onPress={() => onChange(key, value + 1)}
-              hitSlop={6}>
-              <Ionicons name="add" size={16} color={Colors.accent} />
+              hitSlop={4}>
+              <Ionicons name="add" size={18} color={Colors.accent} />
             </Pressable>
             <Text style={styles.count}>{value}</Text>
             <Pressable
@@ -43,8 +43,8 @@ export function QuantityStepperRow({
               ]}
               onPress={() => onChange(key, Math.max(0, value - 1))}
               disabled={value === 0}
-              hitSlop={6}>
-              <Ionicons name="remove" size={16} color={value === 0 ? Colors.textTertiary : Colors.accent} />
+              hitSlop={4}>
+              <Ionicons name="remove" size={18} color={value === 0 ? Colors.textTertiary : Colors.accent} />
             </Pressable>
           </View>
         );
@@ -72,10 +72,13 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weightSemibold,
     color: Colors.textTertiary,
   },
+  // 36px visible + 4px hitSlop on every edge lands on iOS's 44px minimum
+  // tappable target — these get tapped repeatedly to build up a quantity,
+  // by customers who may not be precise tappers.
   stepButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: Colors.surfacePressed,
     alignItems: 'center',
     justifyContent: 'center',

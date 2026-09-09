@@ -1,6 +1,7 @@
 import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
-import { EmptyView, ErrorView, LoadingView } from '@/components/state-views';
+import { LedgerRowSkeleton, Skeleton } from '@/components/skeleton';
+import { EmptyView, ErrorView } from '@/components/state-views';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { formatCurrency, formatDate, ledgerTypeLabel } from '@/lib/format';
 import { LedgerEntry } from '@/lib/types';
@@ -14,7 +15,16 @@ type LedgerResponse = {
 export default function LedgerScreen() {
   const { state, refreshing, refetch, onRefresh } = useApiQuery<LedgerResponse>('/api/ledger');
 
-  if (state.status === 'loading') return <LoadingView />;
+  if (state.status === 'loading') {
+    return (
+      <View style={styles.list}>
+        <Skeleton width="100%" height={92} radius={Radius.card} style={{ marginBottom: Spacing.sm }} />
+        {Array.from({ length: 6 }).map((_, index) => (
+          <LedgerRowSkeleton key={index} />
+        ))}
+      </View>
+    );
+  }
 
   if (state.status === 'error') {
     return <ErrorView message={state.error.message} onRetry={refetch} />;
@@ -28,7 +38,7 @@ export default function LedgerScreen() {
       keyExtractor={(item) => String(item.id)}
       renderItem={({ item }) => <LedgerRow entry={item} />}
       ListHeaderComponent={<AdvanceBalanceCard balance={advance_credit_balance} />}
-      ListEmptyComponent={<EmptyView message="No transactions yet." />}
+      ListEmptyComponent={<EmptyView icon="wallet-outline" message="No transactions yet." />}
       contentContainerStyle={styles.list}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
     />

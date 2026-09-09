@@ -1,15 +1,18 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { DesignGalleryViewer } from '@/components/design-gallery-viewer';
 import { DesignTile } from '@/components/design-tile';
 import { QuantityStepperRow } from '@/components/quantity-stepper-row';
-import { EmptyView, ErrorView, LoadingView } from '@/components/state-views';
+import { DesignTileSkeleton, Skeleton } from '@/components/skeleton';
+import { EmptyView, ErrorView } from '@/components/state-views';
 import { Colors, Radius, Spacing, StatusColors, Typography } from '@/constants/theme';
 import { apiClient, ApiError } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
 import { formatCurrency } from '@/lib/format';
+import { useNotification } from '@/lib/notification-context';
 import { CatalogueDetail, OrderDetail, SizeBreakdown } from '@/lib/types';
 import { useApiQuery } from '@/lib/use-api-query';
 import { QuoteState, useQuote } from '@/lib/use-quote';
@@ -20,6 +23,7 @@ export default function CatalogueDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { logout } = useAuth();
+  const { notify } = useNotification();
   const insets = useSafeAreaInsets();
   const catalogueId = id ? Number(id) : null;
 
@@ -27,10 +31,23 @@ export default function CatalogueDetailScreen() {
   const [sizes, setSizes] = useState<SizeBreakdown>(EMPTY_SIZES);
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
   const quote = useQuote(catalogueId, sizes);
 
-  if (state.status === 'loading') return <LoadingView />;
+  if (state.status === 'loading') {
+    return (
+      <View style={[styles.container, styles.content]}>
+        <View style={styles.designGrid}>
+          {Array.from({ length: 6 }).map((_, index) => (
+            <DesignTileSkeleton key={index} />
+          ))}
+        </View>
+        <Skeleton width="100%" height={104} radius={Radius.card} />
+        <Skeleton width="100%" height={88} radius={Radius.card} />
+      </View>
+    );
+  }
 
   if (state.status === 'error') {
     return <ErrorView message={state.error.message} onRetry={refetch} />;
@@ -41,10 +58,12 @@ export default function CatalogueDetailScreen() {
   // Both cases block a real order server-side, so there's no form to show —
   // same treatment as the web app's sold-out screen.
   if (catalogue.sold_out) {
-    return <EmptyView message="This catalogue is sold out." />;
+    return <EmptyView icon="close-circle-outline" message="This catalogue is sold out." />;
   }
   if (catalogue.already_ordered) {
-    return <EmptyView message="You've already placed an order on this catalogue." />;
+    return (
+      <EmptyView icon="checkmark-circle-outline" message="You've already placed an order on this catalogue." />
+    );
   }
 
   const piecesPerDesign = sizes.xs + sizes.s + sizes.m + sizes.l + sizes.xl;
@@ -79,18 +98,40 @@ export default function CatalogueDetailScreen() {
         return;
       }
       if (err instanceof ApiError && err.reason === 'catalogue_closed') {
-        Alert.alert('Catalogue closed', 'This catalogue just sold out.', [
-          { text: 'OK', onPress: () => router.replace('/catalogues') },
-        ]);
+        notify({
+          title: 'Catalogue closed',
+          message: 'This catalogue just sold out.',
+          variant: 'error',
+          buttons: [{ text: 'OK', onPress: () => router.replace('/catalogues') }],
+        });
         return;
       }
       if (err instanceof ApiError && err.reason === 'duplicate_order') {
-        Alert.alert('Already ordered', "You've already placed an order on this catalogue.", [
-          { text: 'OK', onPress: () => router.back() },
-        ]);
+        notify({
+          title: 'Already ordered',
+          message: "You've already placed an order on this catalogue.",
+          variant: 'info',
+          buttons: [{ text: 'OK', onPress: () => router.back() }],
+        });
         return;
       }
-      Alert.alert('Something went wrong', err instanceof Error ? err.message : 'Please try again.');
+      if (err instanceof ApiError && err.reason === 'customer_not_found') {
+        // The account behind this session no longer matches a customer
+        // record server-side — same recovery as a 401, since there's
+        // nothing to retry into.
+        notify({
+          title: 'Account not found',
+          message: "We couldn't find your account. Please sign in again.",
+          variant: 'error',
+          buttons: [{ text: 'OK', onPress: () => logout() }],
+        });
+        return;
+      }
+      notify({
+        title: 'Something went wrong',
+        message: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'error',
+      });
     } finally {
       setSubmitting(false);
     }
@@ -102,10 +143,17 @@ export default function CatalogueDetailScreen() {
       contentContainerStyle={[styles.content, { paddingBottom: Spacing.md + insets.bottom + Spacing.lg }]}
       keyboardShouldPersistTaps="handled">
       <View style={styles.designGrid}>
-        {catalogue.designs.map((design) => (
-          <DesignTile key={design.id} design={design} />
+        {catalogue.designs.map((design, index) => (
+          <DesignTile key={design.id} design={design} onPress={() => setViewerIndex(index)} />
         ))}
       </View>
+
+      <DesignGalleryViewer
+        visible={viewerIndex !== null}
+        designs={catalogue.designs}
+        initialIndex={viewerIndex ?? 0}
+        onClose={() => setViewerIndex(null)}
+      />
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>QUANTITY PER SIZE</Text>

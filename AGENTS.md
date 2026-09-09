@@ -50,7 +50,7 @@ concrete next step over a comprehensive plan.
 
 | | |
 |---|---|
-| Framework | Expo **SDK 54** (`expo ~54.0.35`) |
+| Framework | Expo **SDK 54** (`expo ~54.0.37`) |
 | React Native | 0.81.5 · New Architecture enabled (`newArchEnabled: true`) |
 | React | 19.1.0 |
 | Routing | `expo-router` ~6.0.24 — file-based, typed routes enabled |
@@ -58,6 +58,7 @@ concrete next step over a comprehensive plan.
 | Backend | Laravel 13 JSON API on the existing CasualOS app, Sanctum token auth |
 | Push | `expo-notifications` (APNs + FCM) — **Phase 4, requires a development build** |
 | Token storage | `expo-secure-store` |
+| Staff bridge | `react-native-webview` + `@preeternal/react-native-cookie-manager` — embeds the CasualiteOS website for staff sign-in, see §5 |
 
 **React Compiler is enabled** (`experiments.reactCompiler: true`). Do not add manual
 `useMemo` / `useCallback` for performance; the compiler handles memoisation. Only reach for
@@ -81,18 +82,25 @@ This is the agreed contract scope. Nothing outside it gets built without a chang
 
 | # | Module | Covers |
 |---|---|---|
-| 01 | **Authentication** | Portal link + email sign-in (no password), persistent session, sign out |
+| 01 | **Authentication** | Portal link + email sign-in (no password), persistent session, sign out, self-service signup with admin approval |
 | 02 | **Account & Orders** | Payment status, outstanding balance, advance credit, order history with expandable detail — activity trail, pieces with photos and sizes, dispatch batches, shipping address |
 | 03 | **Catalogue & Ordering** | Browse open catalogues with cover photos and designs, size-wise quantity entry, live order value, place order with confirmation |
 | 04 | **Announcements** | Push notifications, in-app announcement history. (The admin sending interface is built in CasualOS, not here.) |
-| 05 | **Settings** | Notification preferences, sign out, app version, account deletion request |
+| 05 | **Settings** | Notification preferences, sign out, app version |
+
+Self-signup (2026-09-09) was approved as an addition to Module 01, not a new module — see §5.
+
+Staff login (2026-09-09) is a separate, non-customer-facing bridge — it is not one of the
+five modules. It lets internal CasualiteOS staff (admin/accountant/production_manager/
+creative_head) reuse Module 01's sign-in form to reach the existing CasualiteOS website
+through an embedded WebView, with no native screens of its own. See §5.
 
 **Module 02 is one scrolling screen with expandable order cards**, mirroring
 `../casualos/resources/views/portal/dashboard.blade.php`. Do not split it into four screens.
 
-**Account deletion request in Settings is deliberate.** Apple frequently rejects apps that
-have accounts but no deletion path. A Settings item that emails Casualite is sufficient and
-cheap insurance.
+**No account deletion request in Settings.** An earlier draft of this scope called for one
+as Apple-rejection insurance; the Casualite owner has since confirmed there is no path to
+delete an account and none is wanted. Do not add one without the owner reopening this.
 
 ---
 
@@ -159,8 +167,32 @@ OTP was explicitly rejected: it would make every login depend on email delivery,
 owner already onboards customers manually over WhatsApp. There is no `password` column on
 `customers` (Laravel side).
 
+**Self-signup (decided — do not re-litigate):** the app never creates a `Customer` directly.
+`POST /api/auth/signup` only ever queues a review request in `customer_signup_requests`.
+Approval is fully manual — admin reviews the request on the web, approves it, and sends the
+portal link over WhatsApp exactly as for any admin-created customer. There is no auto-login,
+no push notification, and no status-polling endpoint, by design — once submitted, the app's
+job is done. See `../casualos/CLAUDE.md` rule 5.34 for the backend implementation.
+
+**Staff login (decided — do not re-litigate):** the same `POST /api/auth/verify` endpoint
+serves staff. The server tries a `Customer.portal_token` match first; on a miss it falls
+back to `User.mobile_login_token` (a permanent per-user token, mirroring `portal_token`). A
+matched staff account gets back `{ account_type: 'staff', redirect_url }` — no Sanctum
+bearer token, since staff never call another `/api/*` route. `redirect_url` points at
+`/mobile-login/{token}`, a single-use, ~90-second-TTL token
+(`MobileLoginController::consume()` on the Laravel side) that starts a real Laravel web
+session and redirects into the existing CasualiteOS dashboard. The app just opens that URL
+in a bare `WebView` (`app/(staff)/index.tsx`) — no native UI, no role logic of our own;
+screen visibility comes entirely from the website's own Spatie role middleware. Logging out
+inside the WebView is intercepted (`onShouldStartLoadWithRequest` catching navigation back
+to `/login`) and calls `exitStaffSession()`, which clears the WebView's cookie jar via
+`@preeternal/react-native-cookie-manager` and flips auth status back to `unauthenticated` —
+without that, a departing staff member's session could auto-resume for the next person on a
+shared device, or the website's own login form would render inside the app. See
+`../casualos/CLAUDE.md` rule 5.33 for the backend implementation.
+
 **On sign-out:** revoke the token via `POST /api/auth/logout`, deregister the push token via
-`DELETE /api/devices`, and clear secure storage. All three, or the user keeps getting pushes.
+`DELETE /api/push-tokens`, and clear secure storage. All three, or the user keeps getting pushes.
 
 ---
 
@@ -172,17 +204,29 @@ requests send `Authorization: Bearer <token>` and `Accept: application/json`.
 | Method | Route | Purpose |
 |---|---|---|
 | POST | `/api/auth/verify` | portal_token (bare or full URL) + email → token |
+| POST | `/api/auth/signup` | name/contact_number/city/country/address/email → queues a review request (public, no bearer token) |
 | POST | `/api/auth/logout` | Revoke current token |
 | GET | `/api/me` | Profile, balance, advance credit |
 | GET | `/api/catalogues` | Open catalogues with covers |
 | GET | `/api/catalogues/{id}` | Designs, photos, pricing |
+| POST | `/api/catalogues/{id}/quote` | Price a prospective order without writing it — calls `OrderPlacementService::quote()` |
 | POST | `/api/orders` | Place order (collective quantity model) |
 | GET | `/api/orders` | Order history with status |
 | GET | `/api/orders/{id}` | Full breakdown, activity, dispatch |
 | GET | `/api/ledger` | Dated statement |
 | GET | `/api/announcements` | Announcement history |
-| POST | `/api/devices` | Register Expo push token |
-| DELETE | `/api/devices` | Deregister on sign-out |
+| POST | `/api/announcements/{id}/read` | Mark one announcement read |
+| POST | `/api/push-tokens` | Register Expo push token |
+| DELETE | `/api/push-tokens` | Deregister on sign-out |
+
+Note: earlier drafts of this doc called the last two `/api/devices` — the shipped Laravel
+route and the RN client (`lib/push-notifications.ts`) both use `/api/push-tokens`. Use that
+name.
+
+Staff accounts authenticate through the same `POST /api/auth/verify` row above but never
+receive a bearer token — they get a `redirect_url` instead, and everything past that point
+happens outside this JSON API (see §5's staff-login subsection and
+`../casualos/CLAUDE.md` rule 5.33).
 
 ### Order placement error codes
 
@@ -216,22 +260,35 @@ slow and flaky connections are the normal case, not the edge case.
 
 ## 7. Design system
 
-Port the existing portal's visual language. Do not redesign.
+Port the existing portal's visual language. Do not redesign. Tokens live in
+`constants/theme.ts` — read that file directly if it and this table ever disagree; the file
+is the source of truth, this table is just a summary of it.
 
 | Token | Value |
 |---|---|
-| Primary / accent | `#0071E3` |
-| Background (app chrome) | `#F5F5F7` |
-| Background (surfaces) | `#FFFFFF` |
+| Primary / accent | `#111113` (`Colors.accent`) |
+| Background (app chrome) | `#F7F7F6` (`Colors.background`) |
+| Background (surfaces) | `#FFFFFF` (`Colors.surface`) |
 | Text primary | `#1D1D1F` |
-| Text secondary | `#86868B` |
-| Link | `#0066CC` |
-| Border / divider | `#F2F2F7` |
-| Base spacing unit | 4px |
-| Card radius | 12–16px |
+| Text secondary | `#6E6E73` |
+| Text tertiary | `#86868B` |
+| Border | `#E5E5E2` |
+| Divider | `#EFEFEC` |
+| Success | `#30D158` |
+| Error | `#FF3B30` |
+| Base spacing unit | 4px (`Spacing.xs`→`Spacing.xl`: 4 / 8 / 16 / 24 / 32) |
+| Radius | cards `12px` (`Radius.card`) · pill buttons `999px` (`Radius.pill`) · chips `8px` (`Radius.chip`) |
 
-- **Primary button:** `#0071E3` background, white text, pill-shaped (`borderRadius: 980`)
-- **Secondary button:** `#F5F5F7` background, `#0066CC` text, pill-shaped
+There is no blue anywhere in this app. An earlier draft of this table carried the web
+portal's blue accent (`#0071E3`) and link color (`#0066CC`) — the shipped app is black and
+white only, matching the brand mark the owner shared 2026-09-08. Don't reintroduce blue.
+
+- **Primary button:** `Colors.accent` background, white text, pill-shaped (`Radius.pill`)
+- **Secondary / ghost button:** `Colors.surfacePressed` background, `Colors.textPrimary` text, pill-shaped
+- **Order-status chips:** each `orders.status` value has its own bg/text pair in
+  `StatusColors` (received=blue, confirmed=yellow, stitching=orange,
+  partially_dispatched=purple, dispatched=green, cancelled=red) — this is the one place
+  color varies by semantic meaning instead of sticking to black/white.
 - **Typography:** system font (San Francisco on iOS, Roboto on Android). Do not ship a
   custom font — it costs bundle size for no benefit here.
 
@@ -257,25 +314,25 @@ lib/ or services/    API client, secure storage, formatters
 - **Filenames are kebab-case** (`order-card.tsx`), matching the Expo template's convention.
   Components inside are PascalCase.
 - **Route groups** use parentheses: `app/(auth)/login.tsx` — the folder name doesn't appear
-  in the URL. Use `(auth)` and `(app)` groups to separate signed-out from signed-in screens.
+  in the URL. There are three: `(auth)` (signed-out), `(app)` (signed-in customer), and
+  `(staff)` (signed-in staff — a single WebView screen, see §5).
 - **Styling is `StyleSheet.create`**, defined at the bottom of the file. No inline style
   objects in JSX except for genuinely dynamic values. There is no Tailwind here.
 - **Every string shown to a customer** should read as the portal reads — plain, calm, no
   developer jargon in error messages.
+- **User-facing dialogs use `useNotification()`** (`lib/notification-context.tsx`), never
+  `Alert.alert`. `notify({ title, message, variant, buttons })` renders a themed modal
+  (`components/notification-modal.tsx`, built from the §7 tokens) that's mounted once in
+  `app/_layout.tsx` — it persists across navigation instead of being re-created per screen.
 
-### The scaffold still contains Expo's demo content
-
-`app/(tabs)/`, `components/hello-wave.tsx`, `parallax-scroll-view.tsx`, `themed-text.tsx`
-and friends are template boilerplate. Run `npm run reset-project` or delete them before
-building real screens — don't build around them.
+Expo's demo scaffolding (`app/(tabs)/`, `hello-wave.tsx`, `parallax-scroll-view.tsx`,
+`themed-text.tsx` and friends) has already been removed. If it ever reappears from a
+template regeneration, delete it rather than building around it.
 
 ---
 
 ## 9. Known gotchas
 
-- **`app.json` has no `ios.bundleIdentifier` or `android.package` yet.** Both must be set to
-  `com.techmint.casualite` before the first EAS build. Also change `name` to `Casualite` —
-  it's currently `casualite-app`, which would ship as the home-screen label.
 - **Never run `npm` under `sudo`.** It leaves root-owned files in `~/.npm` that break every
   later install. If permissions fail, fix ownership: `sudo chown -R $(whoami) ~/.npm`.
 - **Do not run `npm audit fix --force`.** It installs breaking major versions and destroys
@@ -310,11 +367,42 @@ npm run reset-project       # remove the template's demo screens
 ## 11. Status
 
 - **Phase 1 — environment:** done. Scaffolded on SDK 54, running on a physical Android
-  phone and iPhone via Expo Go. Expo account/organization and first EAS build still to do.
-- **Phase 2 — backend API:** in progress. `OrderPlacementService` extracted (done);
-  `POST /api/auth/verify` and `GET /api/me` built and tested. Catalogues, orders, ledger,
-  announcements and devices endpoints still to build.
-- **Phase 3 — app build:** not started.
-- **Phase 4 — push + development build + SDK bump:** not started.
+  phone and iPhone via Expo Go. EAS project linked (`casualiteos`), `app.json` carries the
+  final bundle identifiers, and an Android development build has been built and installed
+  on a physical device.
+- **Phase 2 — backend API:** done. `OrderPlacementService` extracted; `/api/auth/verify`,
+  `/api/auth/logout`, `/api/me`, `/api/catalogues`, `/api/catalogues/{id}`,
+  `/api/catalogues/{id}/quote`, `/api/orders`, `/api/orders/{id}`, `/api/ledger`,
+  `/api/announcements` + `/api/announcements/{id}/read`, and `/api/push-tokens`
+  (POST + DELETE) are all built and consumed by the app.
+- **Phase 3 — app build:** done. All five modules have screens: 01 Authentication,
+  02 Account & Orders, 03 Catalogue & Ordering, 04 Announcements (list, detail with
+  swipeable image gallery, unread indicator on Home, mark-as-read on open), and
+  05 Settings (notification status with a link to system settings, sign out, app version —
+  no account deletion item, see §3).
+- **Phase 4 — push + development build + SDK bump:** push notifications are fully working
+  on Android — permission request, token registration/deregistration, foreground handling,
+  tap-to-deep-link (both order and announcement pushes), silent resync on cold start/
+  foreground — verified end-to-end on a physical device, with FCM V1 credentials uploaded
+  via `eas credentials`. **Apple Developer Program organization enrolment is now approved**
+  (confirmed via Apple's welcome email) — the enrolment blocker is cleared. iOS work itself
+  has not started yet: no APNs key generated, no iOS development build produced, no iOS
+  device testing done. The SDK 54 → current bump has not started either. Next concrete steps
+  are §4.0/§4.1 in `../Mobile-App-Development-Plan.md` — iOS development build via
+  `eas build --profile development --platform ios`, then generating and uploading the APNs
+  key.
+- **Self-signup screen (2026-09-09):** done. `app/(auth)/signup.tsx` calls
+  `POST /api/auth/signup`, linked from `app/(auth)/login.tsx`. See §5.
+- **Staff login (2026-09-09):** done. `app/(staff)/index.tsx` (WebView) +
+  `exitStaffSession()` in `lib/auth-context.tsx`. Not a customer module — see §3/§5.
+- **Reusable notification system (2026-09-09):** done. `lib/notification-context.tsx` +
+  `components/notification-modal.tsx` replace every `Alert.alert` call app-wide; mounted
+  once in `app/_layout.tsx` so it survives navigation. See §8.
+
+**Sign-out revokes the token.** `POST /api/auth/logout` (Sanctum-guarded) exists on the
+Laravel side and deletes only the token used for that request — other devices stay signed
+in. `lib/auth-context.tsx`'s `logout()` calls it before clearing local state, best-effort
+(a network failure logs and still clears local state rather than trapping the customer in a
+signed-in view). Covered by `casualos/tests/Feature/Api/AuthTest.php`.
 
 The full six-phase checklist is `../Mobile-App-Development-Plan.md`. Keep it current.

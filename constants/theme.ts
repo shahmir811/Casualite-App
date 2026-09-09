@@ -1,19 +1,27 @@
-// Design tokens extracted directly from the CasualOS customer portal
+// Neutrals are extracted directly from the CasualOS customer portal
 // (resources/views/portal/dashboard.blade.php, show.blade.php) — this app is
 // the native counterpart of that portal and should read as the same product.
+// The accent matches Casualite's actual brand mark (public/images/
+// casualite-logo.png on the Laravel side, and the black-card wordmark
+// treatment the owner shared 2026-09-08): pure black and white, no color.
+// brandBlack is that exact mark background, reserved for the masthead band
+// (components/brand-masthead.tsx) — everywhere else uses accent, which is
+// the same black doing duty as a UI token (buttons, icons, links).
 // Light mode only. Nothing in the source portal specs a dark variant, so
 // don't add one speculatively.
 
 export const Colors = {
-  background: '#F5F5F7',
+  background: '#F7F7F6',
   surface: '#FFFFFF',
-  border: '#E8E8ED',
-  divider: '#F2F2F7',
-  surfacePressed: '#EFEFF4',
+  border: '#E5E5E2',
+  divider: '#EFEFEC',
+  surfacePressed: '#EDEDEA',
   textPrimary: '#1D1D1F',
   textSecondary: '#6E6E73',
   textTertiary: '#86868B',
-  accent: '#0071E3',
+  accent: '#111113',
+  highlightSoft: '#E7E4DD',
+  brandBlack: '#0B0B0C',
   success: '#30D158',
   error: '#FF3B30',
 };
