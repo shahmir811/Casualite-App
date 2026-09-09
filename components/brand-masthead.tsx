@@ -7,10 +7,10 @@ import { Colors, Spacing, Typography } from '@/constants/theme';
 // (casualite-logo.png / the owner's black-card social treatment) — a
 // contained, full-bleed quote of that mark, not a dark theme. Everything
 // below it stays on the light background per constants/theme.ts.
-export function BrandMasthead({ right }: { right?: ReactNode }) {
+export function BrandMasthead({ left, right }: { left?: ReactNode; right?: ReactNode }) {
   return (
     <View style={styles.band}>
-      <View style={styles.side} />
+      <View style={styles.side}>{left}</View>
       <Text style={styles.wordmark}>CASUALITE</Text>
       <View style={[styles.side, styles.sideRight]}>{right}</View>
     </View>

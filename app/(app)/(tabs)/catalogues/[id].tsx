@@ -1,4 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,8 +34,28 @@ export default function CatalogueDetailScreen() {
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const [openingBook, setOpeningBook] = useState(false);
 
   const quote = useQuote(catalogueId, sizes);
+
+  // Fetched on tap, never cached — the presigned S3 URL is only good for 10
+  // minutes (see CLAUDE.md §6).
+  const handleViewBook = async () => {
+    if (!catalogueId || openingBook) return;
+    setOpeningBook(true);
+    try {
+      const data = await apiClient.get<{ url: string }>(`/api/catalogues/${catalogueId}/book`);
+      await WebBrowser.openBrowserAsync(data.url);
+    } catch (err) {
+      notify({
+        title: 'Could not open catalog book',
+        message: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'error',
+      });
+    } finally {
+      setOpeningBook(false);
+    }
+  };
 
   if (state.status === 'loading') {
     return (
@@ -142,6 +164,20 @@ export default function CatalogueDetailScreen() {
       style={styles.container}
       contentContainerStyle={[styles.content, { paddingBottom: Spacing.md + insets.bottom + Spacing.lg }]}
       keyboardShouldPersistTaps="handled">
+      {catalogue.has_catalogue_book ? (
+        <Pressable
+          style={({ pressed }) => [styles.bookButton, pressed && styles.bookButtonPressed]}
+          onPress={handleViewBook}
+          disabled={openingBook}>
+          {openingBook ? (
+            <ActivityIndicator size="small" color={Colors.accent} />
+          ) : (
+            <Ionicons name="book-outline" size={18} color={Colors.accent} />
+          )}
+          <Text style={styles.bookButtonText}>View Catalog Book</Text>
+        </Pressable>
+      ) : null}
+
       <View style={styles.designGrid}>
         {catalogue.designs.map((design, index) => (
           <DesignTile key={design.id} design={design} onPress={() => setViewerIndex(index)} />
@@ -254,6 +290,25 @@ const styles = StyleSheet.create({
   content: {
     padding: Spacing.md,
     gap: Spacing.lg,
+  },
+  bookButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.accent,
+    borderRadius: Radius.pill,
+    paddingVertical: 12,
+  },
+  bookButtonPressed: {
+    opacity: 0.7,
+  },
+  bookButtonText: {
+    fontSize: 15,
+    fontWeight: Typography.weightSemibold,
+    color: Colors.accent,
   },
   designGrid: {
     flexDirection: 'row',

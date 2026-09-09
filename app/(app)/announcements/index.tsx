@@ -4,6 +4,7 @@ import { useCallback, useRef } from 'react';
 import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { AnnouncementCard } from '@/components/announcement-card';
+import { ScreenHeader } from '@/components/screen-header';
 import { AnnouncementRowSkeleton } from '@/components/skeleton';
 import { EmptyView, ErrorView } from '@/components/state-views';
 import { Colors } from '@/constants/theme';
@@ -15,6 +16,8 @@ export default function AnnouncementsScreen() {
   const { state, refreshing, refetch, onRefresh } = useApiQuery<{ announcements: Announcement[] }>(
     '/api/announcements'
   );
+
+  const header = <ScreenHeader title="Notifications" leftIcon="chevron-back" onLeftPress={() => router.back()} />;
 
   // Refetch whenever this screen regains focus (e.g. back from a detail
   // screen that just marked one read) so the unread dot clears without a
@@ -34,7 +37,8 @@ export default function AnnouncementsScreen() {
 
   if (state.status === 'loading') {
     return (
-      <View>
+      <View style={styles.container}>
+        {header}
         {Array.from({ length: 6 }).map((_, index) => (
           <AnnouncementRowSkeleton key={index} />
         ))}
@@ -43,37 +47,52 @@ export default function AnnouncementsScreen() {
   }
 
   if (state.status === 'error') {
-    return <ErrorView message={state.error.message} onRetry={refetch} />;
+    return (
+      <View style={styles.container}>
+        {header}
+        <ErrorView message={state.error.message} onRetry={refetch} />
+      </View>
+    );
   }
 
   const { announcements } = state.data;
 
   if (announcements.length === 0) {
     return (
-      <FlatList
-        data={[]}
-        renderItem={() => null}
-        ListEmptyComponent={<EmptyView icon="megaphone-outline" message="No announcements yet." />}
-        contentContainerStyle={styles.emptyContainer}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
-      />
+      <View style={styles.container}>
+        {header}
+        <FlatList
+          data={[]}
+          renderItem={() => null}
+          ListEmptyComponent={<EmptyView icon="megaphone-outline" message="No announcements yet." />}
+          contentContainerStyle={styles.emptyContainer}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
+        />
+      </View>
     );
   }
 
   return (
-    <FlatList
-      data={announcements}
-      keyExtractor={(item) => item.id}
-      renderItem={({ item }) => (
-        <AnnouncementCard announcement={item} onPress={() => router.push(`/announcements/${item.id}`)} />
-      )}
-      ItemSeparatorComponent={() => <View style={styles.separator} />}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
-    />
+    <View style={styles.container}>
+      {header}
+      <FlatList
+        data={announcements}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <AnnouncementCard announcement={item} onPress={() => router.push(`/announcements/${item.id}`)} />
+        )}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
   separator: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: Colors.divider,

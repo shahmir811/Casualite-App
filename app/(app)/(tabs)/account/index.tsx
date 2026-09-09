@@ -1,5 +1,7 @@
+import { DrawerActions, useNavigation } from '@react-navigation/native';
 import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
+import { ScreenHeader } from '@/components/screen-header';
 import { LedgerRowSkeleton, Skeleton } from '@/components/skeleton';
 import { EmptyView, ErrorView } from '@/components/state-views';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
@@ -12,36 +14,52 @@ type LedgerResponse = {
   ledger: LedgerEntry[];
 };
 
-export default function LedgerScreen() {
+export default function AccountScreen() {
+  const navigation = useNavigation();
   const { state, refreshing, refetch, onRefresh } = useApiQuery<LedgerResponse>('/api/ledger');
+
+  const header = (
+    <ScreenHeader title="Account & Ledger" onLeftPress={() => navigation.dispatch(DrawerActions.openDrawer())} />
+  );
 
   if (state.status === 'loading') {
     return (
-      <View style={styles.list}>
-        <Skeleton width="100%" height={92} radius={Radius.card} style={{ marginBottom: Spacing.sm }} />
-        {Array.from({ length: 6 }).map((_, index) => (
-          <LedgerRowSkeleton key={index} />
-        ))}
+      <View style={styles.container}>
+        {header}
+        <View style={styles.list}>
+          <Skeleton width="100%" height={92} radius={Radius.card} style={{ marginBottom: Spacing.sm }} />
+          {Array.from({ length: 6 }).map((_, index) => (
+            <LedgerRowSkeleton key={index} />
+          ))}
+        </View>
       </View>
     );
   }
 
   if (state.status === 'error') {
-    return <ErrorView message={state.error.message} onRetry={refetch} />;
+    return (
+      <View style={styles.container}>
+        {header}
+        <ErrorView message={state.error.message} onRetry={refetch} />
+      </View>
+    );
   }
 
   const { advance_credit_balance, ledger } = state.data;
 
   return (
-    <FlatList
-      data={ledger}
-      keyExtractor={(item) => String(item.id)}
-      renderItem={({ item }) => <LedgerRow entry={item} />}
-      ListHeaderComponent={<AdvanceBalanceCard balance={advance_credit_balance} />}
-      ListEmptyComponent={<EmptyView icon="wallet-outline" message="No transactions yet." />}
-      contentContainerStyle={styles.list}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
-    />
+    <View style={styles.container}>
+      {header}
+      <FlatList
+        data={ledger}
+        keyExtractor={(item) => String(item.id)}
+        renderItem={({ item }) => <LedgerRow entry={item} />}
+        ListHeaderComponent={<AdvanceBalanceCard balance={advance_credit_balance} />}
+        ListEmptyComponent={<EmptyView icon="wallet-outline" message="No transactions yet." />}
+        contentContainerStyle={styles.list}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
+      />
+    </View>
   );
 }
 
@@ -76,6 +94,10 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
   list: {
     padding: Spacing.md,
   },

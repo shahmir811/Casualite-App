@@ -1,14 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
+import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { ScreenHeader } from '@/components/screen-header';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 
 export default function SettingsScreen() {
   const { logout } = useAuth();
+  const router = useRouter();
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -18,7 +21,9 @@ export default function SettingsScreen() {
   }, []);
 
   return (
-    <View style={styles.container}>
+    <View style={styles.screen}>
+      <ScreenHeader title="Settings" leftIcon="chevron-back" onLeftPress={() => router.back()} />
+      <View style={styles.container}>
       <View style={styles.group}>
         <SettingsRow
           icon="notifications-outline"
@@ -36,6 +41,7 @@ export default function SettingsScreen() {
 
       <View style={styles.group}>
         <SettingsRow icon="log-out-outline" label="Sign Out" onPress={logout} />
+      </View>
       </View>
     </View>
   );
@@ -73,9 +79,12 @@ function SettingsRow({
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  container: {
+    flex: 1,
     padding: Spacing.md,
     gap: Spacing.lg,
   },

@@ -210,6 +210,7 @@ requests send `Authorization: Bearer <token>` and `Accept: application/json`.
 | GET | `/api/catalogues` | Open catalogues with covers |
 | GET | `/api/catalogues/{id}` | Designs, photos, pricing |
 | POST | `/api/catalogues/{id}/quote` | Price a prospective order without writing it — calls `OrderPlacementService::quote()` |
+| GET | `/api/catalogues/{id}/book` | Fresh 10-min presigned S3 URL for the catalogue's lookbook PDF, `{ url }`. 404 if none uploaded — check `has_catalogue_book` on the catalogue first. Fetch on tap, never cache. |
 | POST | `/api/orders` | Place order (collective quantity model) |
 | GET | `/api/orders` | Order history with status |
 | GET | `/api/orders/{id}` | Full breakdown, activity, dispatch |
@@ -398,6 +399,30 @@ npm run reset-project       # remove the template's demo screens
 - **Reusable notification system (2026-09-09):** done. `lib/notification-context.tsx` +
   `components/notification-modal.tsx` replace every `Alert.alert` call app-wide; mounted
   once in `app/_layout.tsx` so it survives navigation. See §8.
+- **Catalog book (lookbook PDF) viewing (2026-09-10):** done. "View Catalog Book" button on
+  `app/(app)/(tabs)/catalogues/[id].tsx`, shown when `has_catalogue_book` is true, fetches
+  `GET /api/catalogues/{id}/book` on tap and opens the presigned URL with
+  `WebBrowser.openBrowserAsync` (Android Custom Tabs / iOS SFSafariViewController).
+  A native in-app viewer (`react-native-pdf` + `react-native-blob-util`, self-managed
+  download with retry, local `file://` rendering) was built and shipped to a real Android
+  device first, but a "Download interrupted" error proved unfixable: it reproduced 100% of
+  the time regardless of network (cellular with a 50MB+ file, then WiFi with no SIM at all),
+  and a direct browser download of the exact same presigned URL on the same device completed
+  fine — proving the URL/S3/network layer was never the problem and the bug was inside
+  `react-native-blob-util`'s Android download/completion-detection path itself
+  (`isDownloadComplete()` in `ReactNativeBlobUtilFileResp.java`). A theory that OkHttp's
+  transparent gzip handling was stripping `Content-Length` and triggering a chunked-download
+  detection bug was tested (`Accept-Encoding: identity`) and ruled out — it didn't change the
+  failure. Diagnosing further needed a live adb logcat capture (no USB access to the test
+  device at the time), so the native viewer was reverted in favor of the simpler, already-
+  working `WebBrowser.openBrowserAsync` approach: it downloads fully before displaying either
+  way (catalog books run up to ~200MB) and Android Chrome downloads rather than previews the
+  PDF inline, but it's reliable, which the native path wasn't. `react-native-pdf`,
+  `react-native-blob-util`, and their config plugins have been removed from the project.
+  If in-app preview is revisited, get a live adb logcat capture on a real failing device
+  before attempting another fix — every prior round guessing from a paraphrased error
+  description produced a wrong or incomplete fix; every round with the literal error text
+  (or, here, definitive proof via comparison) moved the diagnosis forward. See §6.
 
 **Sign-out revokes the token.** `POST /api/auth/logout` (Sanctum-guarded) exists on the
 Laravel side and deletes only the token used for that request — other devices stay signed

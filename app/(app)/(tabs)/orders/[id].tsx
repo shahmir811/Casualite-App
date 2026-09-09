@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
@@ -14,6 +15,7 @@ import { EmptyView, ErrorView } from '@/components/state-views';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { ApiError } from '@/lib/api-client';
 import { formatCurrency, formatDate } from '@/lib/format';
+import { useNotification } from '@/lib/notification-context';
 import { DispatchBatchItem, OrderDetail } from '@/lib/types';
 import { useApiQuery } from '@/lib/use-api-query';
 
@@ -38,8 +40,14 @@ function groupBatchItemsByDesign(items: DispatchBatchItem[]) {
 export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
+  const { notify } = useNotification();
   const { state, refetch } = useApiQuery<{ order: OrderDetail }>(id ? `/api/orders/${id}` : null);
   const [expandedBatchIds, setExpandedBatchIds] = useState<Set<number>>(new Set());
+
+  const copyHdGalleryLink = async (url: string) => {
+    await Clipboard.setStringAsync(url);
+    notify({ title: 'Link copied', message: 'The HD photos link is on your clipboard.', variant: 'success' });
+  };
 
   const toggleBatch = (batchId: number) => {
     setExpandedBatchIds((current) => {
@@ -103,12 +111,20 @@ export default function OrderDetailScreen() {
       </View>
 
       {order.catalogue.hd_gallery_url ? (
-        <Pressable
-          style={({ pressed }) => [styles.hdButton, pressed && styles.hdButtonPressed]}
-          onPress={() => WebBrowser.openBrowserAsync(order.catalogue.hd_gallery_url!)}>
-          <Ionicons name="images-outline" size={18} color={Colors.accent} />
-          <Text style={styles.hdButtonText}>View HD Photos</Text>
-        </Pressable>
+        <View style={styles.hdRow}>
+          <Pressable
+            style={({ pressed }) => [styles.hdButton, pressed && styles.hdButtonPressed]}
+            onPress={() => WebBrowser.openBrowserAsync(order.catalogue.hd_gallery_url!)}>
+            <Ionicons name="images-outline" size={18} color={Colors.accent} />
+            <Text style={styles.hdButtonText}>View HD Photos</Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.hdCopyButton, pressed && styles.hdButtonPressed]}
+            hitSlop={8}
+            onPress={() => copyHdGalleryLink(order.catalogue.hd_gallery_url!)}>
+            <Ionicons name="copy-outline" size={18} color={Colors.accent} />
+          </Pressable>
+        </View>
       ) : null}
 
       <Section title="Size breakdown">
@@ -256,7 +272,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  hdRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
   hdButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -266,6 +287,15 @@ const styles = StyleSheet.create({
     borderColor: Colors.accent,
     borderRadius: Radius.pill,
     paddingVertical: 12,
+  },
+  hdCopyButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 44,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.accent,
+    borderRadius: Radius.pill,
   },
   hdButtonPressed: {
     opacity: 0.7,

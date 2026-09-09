@@ -1,34 +1,20 @@
-import { Stack } from 'expo-router';
+import { Drawer } from 'expo-router/drawer';
 
-import { Colors, Typography } from '@/constants/theme';
+import { AppDrawerContent } from '@/components/app-drawer-content';
 
-// Shared with every pushed screen below — a plain object (not a nested Stack)
-// so all of them live in this one navigator and get a working back button to
-// Home. A nested Stack per subfolder treats its first screen as its own
-// root, which drops the back history to whatever pushed into it.
-const detailHeaderOptions = {
-  headerShown: true,
-  headerStyle: { backgroundColor: Colors.surface },
-  headerShadowVisible: false,
-  // Quiet ink, not the brand gold — gold is reserved for real calls to
-  // action, not chrome like the back button.
-  headerTintColor: Colors.textPrimary,
-  headerTitleStyle: { color: Colors.textPrimary, fontWeight: Typography.weightSemibold },
-  headerBackTitle: 'Back',
-} as const;
-
+// Replaces the old flat Stack. (tabs) carries the 4 bottom-tab roots (Home,
+// Catalogues, Orders, Account), each with its own nested stack for detail
+// screens. announcements and settings are drawer-only destinations with no
+// tab of their own — see components/app-drawer-content.tsx for the full nav
+// list and components/screen-header.tsx for their in-screen back header.
 export default function AppLayout() {
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="index" />
-      <Stack.Screen name="orders/index" options={{ ...detailHeaderOptions, title: 'My Orders' }} />
-      <Stack.Screen name="orders/[id]" options={{ ...detailHeaderOptions, title: 'Order Details' }} />
-      <Stack.Screen name="ledger" options={{ ...detailHeaderOptions, title: 'Account' }} />
-      <Stack.Screen name="catalogues/index" options={{ ...detailHeaderOptions, title: 'Catalogues' }} />
-      <Stack.Screen name="catalogues/[id]" options={{ ...detailHeaderOptions, title: 'New Order' }} />
-      <Stack.Screen name="announcements/index" options={{ ...detailHeaderOptions, title: 'Announcements' }} />
-      <Stack.Screen name="announcements/[id]" options={{ ...detailHeaderOptions, title: 'Announcement' }} />
-      <Stack.Screen name="settings" options={{ ...detailHeaderOptions, title: 'Settings' }} />
-    </Stack>
+    <Drawer
+      screenOptions={{ headerShown: false, drawerType: 'front', overlayColor: 'rgba(12,21,18,0.4)' }}
+      drawerContent={(props) => <AppDrawerContent {...props} />}>
+      <Drawer.Screen name="(tabs)" />
+      <Drawer.Screen name="announcements" />
+      <Drawer.Screen name="settings" />
+    </Drawer>
   );
 }

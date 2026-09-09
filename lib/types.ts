@@ -126,6 +126,7 @@ export type CatalogueSummary = {
   available_pieces: number;
   sold_out: boolean;
   already_ordered: boolean;
+  has_catalogue_book: boolean;
 };
 
 export type Design = {
