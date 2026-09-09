@@ -1,5 +1,6 @@
 import { useMemo, useRef } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import WebView from 'react-native-webview';
 
 import { Colors } from '@/constants/theme';
@@ -21,6 +22,7 @@ import { useAuth } from '@/lib/auth-context';
  */
 export default function StaffWebViewScreen() {
   const { staffRedirectUrl, exitStaffSession } = useAuth();
+  const insets = useSafeAreaInsets();
 
   // Derived from the redirect_url's own origin rather than a second
   // hardcoded host, so this never drifts from whatever backend issued it.
@@ -56,7 +58,11 @@ export default function StaffWebViewScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        { paddingTop: insets.top, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right },
+      ]}>
       <WebView
         source={{ uri: staffRedirectUrl }}
         onShouldStartLoadWithRequest={handleShouldStartLoad}

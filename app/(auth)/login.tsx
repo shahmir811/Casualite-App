@@ -5,11 +5,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
@@ -22,6 +24,7 @@ const logoSource = require('../../assets/images/casualite-logo.png');
 
 export default function LoginScreen() {
   const { login } = useAuth();
+  const insets = useSafeAreaInsets();
   const [portalToken, setPortalToken] = useState('');
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -45,8 +48,11 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={styles.content}>
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: Spacing.lg + insets.bottom + Spacing.lg }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}>
         <Image source={logoSource} style={styles.logo} contentFit="contain" />
         <Text style={styles.subtitle}>
           Enter the portal link Casualite sent you and the email on your account.
@@ -91,7 +97,7 @@ export default function LoginScreen() {
             <Text style={styles.buttonText}>Sign in</Text>
           )}
         </Pressable>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -102,7 +108,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   content: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: Spacing.lg,
     gap: Spacing.md,
