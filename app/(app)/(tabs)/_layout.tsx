@@ -24,6 +24,7 @@ export default function TabsLayout() {
         options={{
           title: 'Catalogues',
           tabBarIcon: ({ color, size }) => <Ionicons name="pricetags-outline" size={size} color={color} />,
+          popToTopOnBlur: true,
         }}
       />
       <Tabs.Screen

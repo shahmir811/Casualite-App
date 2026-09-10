@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AnnouncementCard } from '@/components/announcement-card';
 import { BrandMasthead } from '@/components/brand-masthead';
 import { DesignPhoto } from '@/components/design-photo';
+import { HomeHero } from '@/components/home-hero';
 import { OrderStatusTracker } from '@/components/order-status-tracker';
 import { AnnouncementRowSkeleton, Skeleton } from '@/components/skeleton';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
@@ -66,6 +67,12 @@ export default function HomeScreen() {
   const orderableCatalogues =
     cataloguesState.status === 'success'
       ? cataloguesState.data.catalogues.filter((c) => !c.sold_out && !c.already_ordered)
+      : [];
+  // Every open catalogue's cover, not just orderable ones — this is purely
+  // decorative, so a catalogue being sold out shouldn't drop it from rotation.
+  const heroImages =
+    cataloguesState.status === 'success'
+      ? cataloguesState.data.catalogues.map((c) => c.cover_photo_url).filter((url): url is string => Boolean(url))
       : [];
 
   // Home stays mounted for the lifetime of the signed-in session (see the
@@ -146,7 +153,9 @@ export default function HomeScreen() {
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingBottom: Spacing.lg + insets.bottom + Spacing.lg }]}>
-      <Text style={styles.greeting}>Welcome, {customer?.name}</Text>
+      <HomeHero images={heroImages}>
+        <Text style={styles.greeting}>Welcome, {customer?.name}</Text>
+      </HomeHero>
 
       {announcementsState.status === 'loading' ? (
         <View style={styles.announcementCard}>
@@ -159,29 +168,6 @@ export default function HomeScreen() {
             onPress={() => router.push(`/announcements/${latestAnnouncement.id}`)}
           />
         </View>
-      ) : null}
-
-      {ledgerState.status === 'loading' ? (
-        <View style={styles.balanceCard}>
-          <Skeleton width={120} height={11} radius={4} />
-          <Skeleton width={150} height={26} radius={4} />
-        </View>
-      ) : ledgerState.status === 'success' ? (
-        <Pressable
-          style={({ pressed }) => [styles.balanceCard, pressed && styles.orderCardPressed]}
-          onPress={() => router.push('/account')}>
-          <Text style={styles.balanceLabel}>Outstanding Balance</Text>
-          {outstandingTotal > 0 ? (
-            <Text style={[styles.balanceValue, styles.balanceValueDue]}>{formatCurrency(outstandingTotal)}</Text>
-          ) : (
-            <Text style={[styles.balanceValue, styles.balanceValueClear]}>All paid up</Text>
-          )}
-          {advanceCredit > 0 ? (
-            <View style={styles.balancePill}>
-              <Text style={styles.balancePillText}>Advance credit {formatCurrency(advanceCredit)}</Text>
-            </View>
-          ) : null}
-        </Pressable>
       ) : null}
 
       {ordersState.status === 'loading' ? (
@@ -225,6 +211,24 @@ export default function HomeScreen() {
             <Text style={styles.emptyOrderCtaText}>Browse Catalogues</Text>
             <Ionicons name="chevron-forward" size={16} color={Colors.accent} />
           </View>
+        </Pressable>
+      ) : null}
+
+      {ledgerState.status === 'success' && outstandingTotal > 0 ? (
+        <Pressable
+          style={({ pressed }) => [styles.balanceBanner, styles.balanceBannerDue, pressed && styles.orderCardPressed]}
+          onPress={() => router.push('/account')}>
+          <Ionicons name="alert-circle-outline" size={20} color={Colors.error} />
+          <Text style={styles.balanceBannerDueText}>{formatCurrency(outstandingTotal)} outstanding</Text>
+          <Ionicons name="chevron-forward" size={18} color={Colors.error} />
+        </Pressable>
+      ) : ledgerState.status === 'success' && advanceCredit > 0 ? (
+        <Pressable
+          style={({ pressed }) => [styles.balanceBanner, styles.balanceBannerCredit, pressed && styles.orderCardPressed]}
+          onPress={() => router.push('/account')}>
+          <Ionicons name="wallet-outline" size={20} color={Colors.accent} />
+          <Text style={styles.balanceBannerCreditText}>{formatCurrency(advanceCredit)} advance credit</Text>
+          <Ionicons name="chevron-forward" size={18} color={Colors.accent} />
         </Pressable>
       ) : null}
 
@@ -306,7 +310,7 @@ const styles = StyleSheet.create({
   greeting: {
     fontSize: 24,
     fontWeight: Typography.weightSemibold,
-    color: Colors.textPrimary,
+    color: '#FFFFFF',
   },
   announcementCard: {
     backgroundColor: Colors.surface,
@@ -315,41 +319,28 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     overflow: 'hidden',
   },
-  balanceCard: {
-    backgroundColor: Colors.surface,
+  balanceBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderRadius: Radius.card,
-    borderWidth: 1,
-    borderColor: Colors.border,
     padding: Spacing.md,
-    gap: 6,
+    gap: Spacing.sm,
   },
-  balanceLabel: {
-    fontSize: 11,
+  balanceBannerDue: {
+    backgroundColor: Colors.errorSoft,
+  },
+  balanceBannerCredit: {
+    backgroundColor: Colors.highlightSoft,
+  },
+  balanceBannerDueText: {
+    flex: 1,
+    fontSize: 15,
     fontWeight: Typography.weightSemibold,
-    color: Colors.textTertiary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  balanceValue: {
-    fontSize: 26,
-    fontWeight: Typography.weightBold,
-  },
-  balanceValueDue: {
     color: Colors.error,
   },
-  balanceValueClear: {
-    color: Colors.success,
-  },
-  balancePill: {
-    alignSelf: 'flex-start',
-    backgroundColor: Colors.highlightSoft,
-    borderRadius: Radius.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    marginTop: 2,
-  },
-  balancePillText: {
-    fontSize: 12,
+  balanceBannerCreditText: {
+    flex: 1,
+    fontSize: 15,
     fontWeight: Typography.weightSemibold,
     color: Colors.accent,
   },
