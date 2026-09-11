@@ -13,7 +13,8 @@ const PHOTO_HEIGHT = 136;
 // feedback. Sizes are always the fixed xs–xl enum (CLAUDE.md §6), so "XS to
 // XL" is safe to show as a static string rather than derived data.
 export function CatalogueTile({ catalogue, onPress }: { catalogue: CatalogueSummary; onPress: () => void }) {
-  const disabled = catalogue.sold_out || catalogue.already_ordered;
+  const closed = catalogue.status === 'closed';
+  const disabled = closed || catalogue.sold_out || catalogue.already_ordered;
 
   return (
     <Pressable
@@ -30,7 +31,7 @@ export function CatalogueTile({ catalogue, onPress }: { catalogue: CatalogueSumm
             {catalogue.number_of_designs} {catalogue.number_of_designs === 1 ? 'Design' : 'Designs'} · XS to XL
           </Text>
         </View>
-        {catalogue.sold_out ? (
+        {closed || catalogue.sold_out ? (
           <View style={[styles.badge, styles.soldOutBadge]}>
             <Text style={[styles.badgeText, styles.soldOutText]}>Sold Out</Text>
           </View>

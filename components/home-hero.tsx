@@ -1,32 +1,56 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { ReactNode, useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Colors, Radius } from '@/constants/theme';
+import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
+import { CatalogueSummary } from '@/lib/types';
 
 const SLIDE_INTERVAL_MS = 7000;
 const CROSSFADE_MS = 900;
 
-// Decorative backdrop for the Home greeting — cycles through open catalogue
-// cover photos behind a dark overlay so the text on top stays readable.
-// expo-image's `transition` prop crossfades automatically whenever `source`
-// changes, so no manual Animated setup is needed.
-export function HomeHero({ images, children }: { images: string[]; children: ReactNode }) {
+// Promotional carousel over Home — cycles through the most recent catalogues
+// (caller passes at most 5, already newest-first from /api/catalogues, see
+// CatalogueController@index's ->latest()) with the catalogue's own name.
+// The CTA always opens the Catalogues list, not a specific catalogue — so
+// unlike the eyebrow below, it doesn't need to know which slide is showing.
+// `newestId` drives the one-off "NEW" eyebrow — it's always the first item
+// of the *unfiltered* catalogue list the caller has, since that's the one
+// true "most recently created" signal the API gives us; a catalogue missing
+// a cover photo (and so absent from `catalogues` here) simply never gets the
+// eyebrow rather than us guessing at a substitute image.
+export function HomeHero({
+  catalogues,
+  newestId,
+  onExplorePress,
+}: {
+  catalogues: CatalogueSummary[];
+  newestId?: number;
+  onExplorePress: () => void;
+}) {
   const [index, setIndex] = useState(0);
 
+  // Catalogue list can change size between refetches (e.g. one closes) —
+  // clamp back to the first slide rather than pointing past the new end.
   useEffect(() => {
-    if (images.length < 2) return;
+    setIndex(0);
+  }, [catalogues.length]);
+
+  useEffect(() => {
+    if (catalogues.length < 2) return;
     const id = setInterval(() => {
-      setIndex((current) => (current + 1) % images.length);
+      setIndex((current) => (current + 1) % catalogues.length);
     }, SLIDE_INTERVAL_MS);
     return () => clearInterval(id);
-  }, [images.length]);
+  }, [catalogues.length]);
+
+  const current = catalogues[index] ?? null;
 
   return (
     <View style={styles.hero}>
-      {images.length > 0 ? (
+      {current?.cover_photo_url ? (
         <Image
-          source={{ uri: images[index] }}
+          source={{ uri: current.cover_photo_url }}
           style={StyleSheet.absoluteFill}
           contentFit="cover"
           transition={CROSSFADE_MS}
@@ -34,15 +58,42 @@ export function HomeHero({ images, children }: { images: string[]; children: Rea
       ) : (
         <View style={[StyleSheet.absoluteFill, styles.fallbackBackground]} />
       )}
-      <View style={styles.overlay} />
-      <View style={styles.content}>{children}</View>
+
+      {current ? (
+        <View style={styles.content}>
+          {current.id === newestId ? (
+            <View style={styles.eyebrowBacking}>
+              <Text style={styles.eyebrow}>New</Text>
+            </View>
+          ) : null}
+          <View style={styles.nameBacking}>
+            <Text style={styles.name} numberOfLines={1}>
+              {current.name}
+            </Text>
+          </View>
+          <Pressable
+            style={({ pressed }) => [styles.exploreButton, pressed && styles.exploreButtonPressed]}
+            onPress={onExplorePress}>
+            <Text style={styles.exploreText}>Explore Catalogues</Text>
+            <Ionicons name="arrow-forward" size={16} color={Colors.textPrimary} />
+          </Pressable>
+        </View>
+      ) : null}
+
+      {catalogues.length > 1 ? (
+        <View style={styles.dots} pointerEvents="none">
+          {catalogues.map((item, i) => (
+            <View key={item.id} style={[styles.dot, i === index && styles.dotActive]} />
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   hero: {
-    height: 180,
+    height: 224,
     borderRadius: Radius.card,
     overflow: 'hidden',
     justifyContent: 'flex-end',
@@ -50,11 +101,72 @@ const styles = StyleSheet.create({
   fallbackBackground: {
     backgroundColor: Colors.brandBlack,
   },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-  },
   content: {
-    padding: 16,
+    padding: Spacing.md,
+    gap: 6,
+  },
+  // Tight dark backings behind just the eyebrow and title lines — not a
+  // wash across the image — so the rest of the photo stays fully visible.
+  eyebrowBacking: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(11,11,12,0.55)',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  nameBacking: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(11,11,12,0.55)',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  eyebrow: {
+    fontSize: 11,
+    fontWeight: Typography.weightSemibold,
+    letterSpacing: 1.5,
+    color: '#FFFFFF',
+    textTransform: 'uppercase',
+  },
+  name: {
+    fontSize: 22,
+    fontWeight: Typography.weightBold,
+    color: '#FFFFFF',
+  },
+  exploreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    marginTop: 4,
+    backgroundColor: '#FFFFFF',
+    borderRadius: Radius.pill,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  exploreButtonPressed: {
+    opacity: 0.85,
+  },
+  exploreText: {
+    fontSize: 14,
+    fontWeight: Typography.weightSemibold,
+    color: Colors.textPrimary,
+  },
+  dots: {
+    position: 'absolute',
+    top: Spacing.md,
+    right: Spacing.md,
+    flexDirection: 'row',
+    gap: 5,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.45)',
+  },
+  dotActive: {
+    width: 16,
+    backgroundColor: '#FFFFFF',
   },
 });

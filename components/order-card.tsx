@@ -1,44 +1,51 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { DesignPhoto } from '@/components/design-photo';
 import { StatusBadge } from '@/components/status-badge';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { OrderSummary } from '@/lib/types';
+
+const PHOTO_SIZE = 64;
 
 export function OrderCard({ order, onPress }: { order: OrderSummary; onPress: () => void }) {
   const isPaid = parseFloat(order.outstanding_balance) <= 0;
 
   return (
     <Pressable style={({ pressed }) => [styles.card, pressed && styles.cardPressed]} onPress={onPress}>
-      <View style={styles.topRow}>
-        <StatusBadge status={order.status} />
-        <Text style={styles.date}>{formatDate(order.created_at)}</Text>
-      </View>
+      <DesignPhoto url={order.catalogue.cover_photo_url} size={PHOTO_SIZE} />
 
-      <View style={styles.titleRow}>
-        <Text style={styles.catalogueName} numberOfLines={1}>
-          {order.catalogue.name}
+      <View style={styles.body}>
+        <View style={styles.topRow}>
+          <StatusBadge status={order.status} />
+          <Text style={styles.date}>{formatDate(order.created_at)}</Text>
+        </View>
+
+        <View style={styles.titleRow}>
+          <Text style={styles.catalogueName} numberOfLines={1}>
+            {order.catalogue.name}
+          </Text>
+          <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
+        </View>
+        <Text style={styles.pieces}>
+          {order.total_pieces} {order.total_pieces === 1 ? 'piece' : 'pieces'} · Order #{order.order_number}
         </Text>
-        <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
-      </View>
-      <Text style={styles.pieces}>
-        {order.total_pieces} {order.total_pieces === 1 ? 'piece' : 'pieces'} · Order #{order.order_number}
-      </Text>
 
-      <View style={styles.divider} />
+        <View style={styles.divider} />
 
-      <View style={styles.bottomRow}>
-        <Text style={styles.amount}>{formatCurrency(order.total_amount)}</Text>
-        {isPaid ? (
-          <View style={[styles.pill, styles.paidPill]}>
-            <Text style={[styles.pillText, styles.paidText]}>Paid</Text>
-          </View>
-        ) : (
-          <View style={[styles.pill, styles.duePill]}>
-            <Text style={[styles.pillText, styles.dueText]}>{formatCurrency(order.outstanding_balance)} due</Text>
-          </View>
-        )}
+        <View style={styles.bottomRow}>
+          <Text style={styles.amount}>{formatCurrency(order.total_amount)}</Text>
+          {isPaid ? (
+            <View style={[styles.pill, styles.paidPill]}>
+              <Text style={[styles.pillText, styles.paidText]}>Paid</Text>
+            </View>
+          ) : (
+            <View style={[styles.pill, styles.duePill]}>
+              <Text style={[styles.pillText, styles.dueText]}>{formatCurrency(order.outstanding_balance)} due</Text>
+            </View>
+          )}
+        </View>
       </View>
     </Pressable>
   );
@@ -46,10 +53,11 @@ export function OrderCard({ order, onPress }: { order: OrderSummary; onPress: ()
 
 const styles = StyleSheet.create({
   card: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
     backgroundColor: Colors.surface,
     borderRadius: Radius.card,
     padding: Spacing.md,
-    gap: 6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
@@ -58,6 +66,10 @@ const styles = StyleSheet.create({
   },
   cardPressed: {
     backgroundColor: Colors.surfacePressed,
+  },
+  body: {
+    flex: 1,
+    gap: 6,
   },
   topRow: {
     flexDirection: 'row',

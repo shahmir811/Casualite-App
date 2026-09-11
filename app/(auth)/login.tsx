@@ -1,9 +1,11 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -16,6 +18,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
+
+// Owner's 2026-09-11 suggestion: not every buyer wants (or wants to wait
+// for) a full app account — this hands casual one-off orders off to the
+// existing public storefront entirely, no portal token or approval needed.
+// Opens in the phone's own browser (not an in-app sheet) since it's a full
+// shopping/checkout flow, not a quick reference link.
+const STORE_URL = 'https://www.casualite.co/';
 
 // Cropped and downsized from casualos/public/images/casualite-logo.png (the
 // brand's actual mark, 500dpi source) — trimmed to its bounding box so it
@@ -105,6 +114,20 @@ export default function LoginScreen() {
             Don&apos;t have an account? <Text style={styles.signupLinkTextEmphasis}>Sign Up</Text>
           </Text>
         </Pressable>
+
+        <View style={styles.divider}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>or</Text>
+          <View style={styles.dividerLine} />
+        </View>
+
+        <Pressable
+          style={({ pressed }) => [styles.storeButton, pressed && styles.storeButtonPressed]}
+          onPress={() => Linking.openURL(STORE_URL)}>
+          <Ionicons name="globe-outline" size={18} color={Colors.textPrimary} />
+          <Text style={styles.storeButtonText}>Shop at Casualite Store</Text>
+        </Pressable>
+        <Text style={styles.storeCaption}>Just need one order? No account required.</Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -186,5 +209,46 @@ const styles = StyleSheet.create({
   signupLinkTextEmphasis: {
     fontWeight: Typography.weightSemibold,
     color: Colors.accent,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  dividerLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: Colors.border,
+  },
+  dividerText: {
+    fontSize: 12,
+    fontWeight: Typography.weightMedium,
+    color: Colors.textTertiary,
+    textTransform: 'uppercase',
+  },
+  storeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.pill,
+    paddingVertical: 14,
+  },
+  storeButtonPressed: {
+    backgroundColor: Colors.surfacePressed,
+  },
+  storeButtonText: {
+    fontSize: 16,
+    fontWeight: Typography.weightSemibold,
+    color: Colors.textPrimary,
+  },
+  storeCaption: {
+    fontSize: 13,
+    fontWeight: Typography.weightRegular,
+    color: Colors.textSecondary,
+    textAlign: 'center',
   },
 });

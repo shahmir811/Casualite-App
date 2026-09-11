@@ -11,10 +11,10 @@ import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { CatalogueSummary } from '@/lib/types';
 import { useApiQuery } from '@/lib/use-api-query';
 
-// Visual only, per the owner's 2026-09-11 design feedback — /api/catalogues
-// only ever returns open catalogues (CLAUDE.md §6), so there's no data yet
-// to tell "New" from "Upcoming" from "Past". Only "All" actually filters;
-// the rest are placeholders until the backend carries that distinction.
+// Visual only, per the owner's 2026-09-11 design feedback. /api/catalogues
+// now returns every catalogue (open and closed, see CatalogueTile's `closed`
+// state), but there's still no data to tell "New" from "Upcoming" apart —
+// only "All" actually filters; the rest are placeholders for now.
 const FILTERS = ['All', 'New', 'Upcoming', 'Past'] as const;
 
 export default function CataloguesScreen() {
@@ -91,7 +91,7 @@ export default function CataloguesScreen() {
           data={[]}
           renderItem={() => null}
           ListEmptyComponent={
-            <EmptyView icon="pricetags-outline" message="No catalogues are open right now." />
+            <EmptyView icon="pricetags-outline" message="No catalogues yet." />
           }
           contentContainerStyle={styles.emptyContainer}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}

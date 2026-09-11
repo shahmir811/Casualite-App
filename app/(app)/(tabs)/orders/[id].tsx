@@ -116,7 +116,7 @@ export default function OrderDetailScreen() {
             style={({ pressed }) => [styles.hdButton, pressed && styles.hdButtonPressed]}
             onPress={() => WebBrowser.openBrowserAsync(order.catalogue.hd_gallery_url!)}>
             <Ionicons name="images-outline" size={18} color={Colors.accent} />
-            <Text style={styles.hdButtonText}>View HD Photos</Text>
+            <Text style={styles.hdButtonText}>Download HD Photos</Text>
           </Pressable>
           <Pressable
             style={({ pressed }) => [styles.hdCopyButton, pressed && styles.hdButtonPressed]}

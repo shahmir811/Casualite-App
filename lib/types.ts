@@ -19,6 +19,14 @@ export type SignupResponse = {
   message: string;
 };
 
+// Backs the signup screen's country picker — fetched at runtime from
+// GET /api/countries instead of a hardcoded array, so a new destination
+// country (see casualos CLAUDE.md rule 5.34 / Customer::COUNTRIES) shows up
+// here without an app release.
+export type CountriesResponse = {
+  countries: string[];
+};
+
 export type OrderStatus =
   | 'received'
   | 'confirmed'
@@ -31,7 +39,7 @@ export type OrderSummary = {
   id: number;
   order_number: string;
   status: OrderStatus;
-  catalogue: { id: number; name: string };
+  catalogue: { id: number; name: string; cover_photo_url: string | null };
   total_pieces: number;
   total_amount: string;
   total_paid: string;
@@ -118,6 +126,7 @@ export type LedgerEntry = {
 export type CatalogueSummary = {
   id: number;
   name: string;
+  status: 'open' | 'closed';
   cover_photo_url: string | null;
   quantity_benchmark: number | null;
   qty_per_design: number;
