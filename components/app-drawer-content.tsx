@@ -5,7 +5,9 @@ import { Href, useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { UnreadBadge } from '@/components/unread-badge';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
+import { useAnnouncements } from '@/lib/announcements-context';
 import { useAuth } from '@/lib/auth-context';
 
 // One flat list covering every destination in the app, not just the 4 tab
@@ -24,7 +26,8 @@ const ITEMS: { icon: keyof typeof Ionicons.glyphMap; label: string; href: Href }
 export function AppDrawerContent(props: DrawerContentComponentProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { logout } = useAuth();
+  const { customer, logout } = useAuth();
+  const { unreadCount } = useAnnouncements();
 
   const go = (href: Href) => {
     props.navigation.dispatch(DrawerActions.closeDrawer());
@@ -44,6 +47,20 @@ export function AppDrawerContent(props: DrawerContentComponentProps) {
         </Pressable>
       </View>
 
+      {customer ? (
+        <View style={styles.profile}>
+          <Text style={styles.profileName} numberOfLines={1}>
+            {customer.name}
+          </Text>
+          <Text style={styles.profileMeta} numberOfLines={1}>
+            {customer.email}
+          </Text>
+          <Text style={styles.profileMeta} numberOfLines={1}>
+            {customer.city}
+          </Text>
+        </View>
+      ) : null}
+
       <View style={styles.list}>
         {ITEMS.map((item) => (
           <Pressable
@@ -51,7 +68,9 @@ export function AppDrawerContent(props: DrawerContentComponentProps) {
             style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
             onPress={() => go(item.href)}>
             <Ionicons name={item.icon} size={20} color={Colors.textPrimary} />
-            <Text style={styles.label}>{item.label}</Text>
+            <Text style={[styles.label, styles.labelFlex]}>{item.label}</Text>
+            {item.href === '/announcements' ? <UnreadBadge count={unreadCount} /> : null}
+            <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
           </Pressable>
         ))}
       </View>
@@ -79,13 +98,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.lg,
   },
   wordmark: {
     fontSize: 17,
     fontWeight: Typography.weightSemibold,
     letterSpacing: 3,
     color: Colors.textPrimary,
+  },
+  profile: {
+    gap: 2,
+    paddingBottom: Spacing.lg,
+    marginBottom: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.divider,
+  },
+  profileName: {
+    fontSize: 16,
+    fontWeight: Typography.weightSemibold,
+    color: Colors.textPrimary,
+  },
+  profileMeta: {
+    fontSize: 13,
+    fontWeight: Typography.weightRegular,
+    color: Colors.textSecondary,
   },
   list: {
     flex: 1,
@@ -106,6 +142,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: Typography.weightMedium,
     color: Colors.textPrimary,
+  },
+  labelFlex: {
+    flex: 1,
   },
   signOutLabel: {
     color: Colors.error,

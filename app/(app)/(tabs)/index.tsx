@@ -12,11 +12,13 @@ import { DesignPhoto } from '@/components/design-photo';
 import { HomeHero } from '@/components/home-hero';
 import { OrderStatusTracker } from '@/components/order-status-tracker';
 import { AnnouncementRowSkeleton, Skeleton } from '@/components/skeleton';
+import { UnreadBadge } from '@/components/unread-badge';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
+import { useAnnouncements } from '@/lib/announcements-context';
 import { useAuth } from '@/lib/auth-context';
 import { formatCurrency } from '@/lib/format';
 import { setBadgeCount } from '@/lib/push-notifications';
-import { Announcement, CatalogueSummary, OrderSummary } from '@/lib/types';
+import { CatalogueSummary, OrderSummary } from '@/lib/types';
 import { useApiQuery } from '@/lib/use-api-query';
 
 type LedgerSummary = { advance_credit_balance: string };
@@ -28,17 +30,11 @@ export default function HomeScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
 
-  // Reuses the same unpaginated endpoint the Announcements screen fetches —
-  // "any unread" is just a client-side check over the full list, so no
-  // dedicated unread-count endpoint is needed.
-  const { state: announcementsState, refetch: refetchAnnouncements } = useApiQuery<{
-    announcements: Announcement[];
-  }>('/api/announcements');
-  const unreadCount =
-    announcementsState.status === 'success'
-      ? announcementsState.data.announcements.filter((a) => a.read_at === null).length
-      : 0;
-  const hasUnread = unreadCount > 0;
+  // Shared with the drawer's Notifications row and the Announcements list/
+  // detail screens — see lib/announcements-context.tsx. Those screens
+  // refetch this shared state themselves the moment something is marked
+  // read, so Home doesn't need its own focus-triggered refetch for this one.
+  const { state: announcementsState, unreadCount } = useAnnouncements();
 
   // Same endpoint the Orders list screen uses — only the most recent order
   // is shown here, as a status card, not a second orders list.
@@ -86,11 +82,10 @@ export default function HomeScreen() {
   }, [announcementsState.status, unreadCount]);
 
   const refetchAll = useCallback(() => {
-    refetchAnnouncements();
     refetchOrders();
     refetchLedger();
     refetchCatalogues();
-  }, [refetchAnnouncements, refetchOrders, refetchLedger, refetchCatalogues]);
+  }, [refetchOrders, refetchLedger, refetchCatalogues]);
 
   // A push arriving while the app is already in the foreground doesn't fire
   // the AppState 'active' transition below, so without this the unread count
@@ -146,7 +141,7 @@ export default function HomeScreen() {
             onPress={() => router.push('/announcements')}
             hitSlop={8}>
             <Ionicons name="notifications-outline" size={22} color="#FFFFFF" />
-            {hasUnread ? <View style={styles.bellDot} /> : null}
+            <UnreadBadge count={unreadCount} style={styles.bellBadge} />
           </Pressable>
         }
       />
@@ -296,14 +291,10 @@ const styles = StyleSheet.create({
   bellWrapPressed: {
     backgroundColor: 'rgba(255,255,255,0.14)',
   },
-  bellDot: {
+  bellBadge: {
     position: 'absolute',
-    top: 1,
-    right: 1,
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-    backgroundColor: '#FFFFFF',
+    top: -4,
+    right: -6,
     borderWidth: 1.5,
     borderColor: Colors.brandBlack,
   },

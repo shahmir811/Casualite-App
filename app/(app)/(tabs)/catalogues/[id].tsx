@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DesignGalleryViewer } from '@/components/design-gallery-viewer';
@@ -10,7 +11,7 @@ import { DesignTile } from '@/components/design-tile';
 import { QuantityStepperRow } from '@/components/quantity-stepper-row';
 import { DesignTileSkeleton, Skeleton } from '@/components/skeleton';
 import { EmptyView, ErrorView } from '@/components/state-views';
-import { Colors, Radius, Spacing, StatusColors, Typography } from '@/constants/theme';
+import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { apiClient, ApiError } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
 import { formatCurrency } from '@/lib/format';
@@ -27,6 +28,7 @@ export default function CatalogueDetailScreen() {
   const { logout } = useAuth();
   const { notify } = useNotification();
   const insets = useSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
   const catalogueId = id ? Number(id) : null;
 
   const { state, refetch } = useApiQuery<{ catalogue: CatalogueDetail }>(id ? `/api/catalogues/${id}` : null);
@@ -60,12 +62,12 @@ export default function CatalogueDetailScreen() {
   if (state.status === 'loading') {
     return (
       <View style={[styles.container, styles.content]}>
+        <Skeleton width="100%" height={screenWidth * 1.1} radius={0} />
         <View style={styles.designGrid}>
           {Array.from({ length: 6 }).map((_, index) => (
             <DesignTileSkeleton key={index} />
           ))}
         </View>
-        <Skeleton width="100%" height={104} radius={Radius.card} />
         <Skeleton width="100%" height={88} radius={Radius.card} />
       </View>
     );
@@ -159,125 +161,158 @@ export default function CatalogueDetailScreen() {
     }
   };
 
+  const heroHeight = screenWidth * 1.1;
+
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={[styles.content, { paddingBottom: Spacing.md + insets.bottom + Spacing.lg }]}
+      contentContainerStyle={{ paddingBottom: Spacing.sm + insets.bottom }}
       keyboardShouldPersistTaps="handled">
+      <View style={[styles.hero, { height: heroHeight }]}>
+        {catalogue.cover_photo_url ? (
+          <Image
+            source={{ uri: catalogue.cover_photo_url }}
+            style={StyleSheet.absoluteFillObject}
+            contentFit="cover"
+          />
+        ) : (
+          <View style={[StyleSheet.absoluteFillObject, styles.heroPlaceholder]}>
+            <Ionicons name="image-outline" size={48} color={Colors.textTertiary} />
+          </View>
+        )}
+        <View style={styles.heroScrim} pointerEvents="none">
+          <View style={[styles.scrimBand, { height: '100%' }]} />
+          <View style={[styles.scrimBand, { height: '75%' }]} />
+          <View style={[styles.scrimBand, { height: '50%' }]} />
+          <View style={[styles.scrimBand, { height: '25%' }]} />
+        </View>
+        <Text style={styles.heroTitle} numberOfLines={2}>
+          {catalogue.name}
+        </Text>
+      </View>
+
       {catalogue.has_catalogue_book ? (
-        <Pressable
-          style={({ pressed }) => [styles.bookButton, pressed && styles.bookButtonPressed]}
-          onPress={handleViewBook}
-          disabled={openingBook}>
-          {openingBook ? (
-            <ActivityIndicator size="small" color={Colors.accent} />
-          ) : (
-            <Ionicons name="book-outline" size={18} color={Colors.accent} />
-          )}
-          <Text style={styles.bookButtonText}>View Catalog Book</Text>
-        </Pressable>
+        <View style={styles.bookButtonWrap}>
+          <Pressable
+            style={({ pressed }) => [styles.bookButton, pressed && styles.bookButtonPressed]}
+            onPress={handleViewBook}
+            disabled={openingBook}>
+            {openingBook ? (
+              <ActivityIndicator size="small" color={Colors.accent} />
+            ) : (
+              <Ionicons name="book-outline" size={18} color={Colors.accent} />
+            )}
+            <Text style={styles.bookButtonText}>View Complete Catalogue</Text>
+          </Pressable>
+        </View>
       ) : null}
 
-      <View style={styles.designGrid}>
-        {catalogue.designs.map((design, index) => (
-          <DesignTile key={design.id} design={design} onPress={() => setViewerIndex(index)} />
-        ))}
-      </View>
+      <View style={styles.body}>
+        <View style={styles.designsHeaderRow}>
+          <Text style={styles.designsHeaderCount}>
+            {catalogue.number_of_designs} {catalogue.number_of_designs === 1 ? 'Design' : 'Designs'}
+          </Text>
+          <Text style={styles.designsHeaderNote}>Complete set only</Text>
+        </View>
 
-      <DesignGalleryViewer
-        visible={viewerIndex !== null}
-        designs={catalogue.designs}
-        initialIndex={viewerIndex ?? 0}
-        onClose={() => setViewerIndex(null)}
-      />
+        <View style={styles.designGrid}>
+          {catalogue.designs.map((design, index) => (
+            <DesignTile key={design.id} design={design} index={index} onPress={() => setViewerIndex(index)} />
+          ))}
+        </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>QUANTITY PER SIZE</Text>
-        <Text style={styles.sectionHint}>
-          Applies to every design in this catalogue — {catalogue.number_of_designs}{' '}
-          {catalogue.number_of_designs === 1 ? 'design' : 'designs'}.
-        </Text>
-        <QuantityStepperRow sizes={sizes} onChange={handleChange} />
-      </View>
-
-      <QuoteSummary quote={quote} hint={hint} />
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>NOTES (OPTIONAL)</Text>
-        <TextInput
-          style={styles.notesInput}
-          placeholder="Add a note for this order"
-          placeholderTextColor={Colors.textTertiary}
-          value={notes}
-          onChangeText={setNotes}
-          multiline
+        <DesignGalleryViewer
+          visible={viewerIndex !== null}
+          designs={catalogue.designs}
+          initialIndex={viewerIndex ?? 0}
+          onClose={() => setViewerIndex(null)}
         />
-      </View>
 
-      <Pressable
-        style={({ pressed }) => [styles.submitButton, (!canSubmit || pressed) && styles.submitButtonDisabled]}
-        onPress={handleSubmit}
-        disabled={!canSubmit}>
-        {submitting ? (
-          <ActivityIndicator color={Colors.surface} />
-        ) : (
-          <Text style={styles.submitButtonText}>Place Order</Text>
-        )}
-      </Pressable>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>QUANTITY PER SIZE</Text>
+          <Text style={styles.sectionHint}>
+            Applies to every design in this catalogue — {catalogue.number_of_designs}{' '}
+            {catalogue.number_of_designs === 1 ? 'design' : 'designs'}.
+          </Text>
+          <QuantityStepperRow sizes={sizes} onChange={handleChange} />
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>NOTES (OPTIONAL)</Text>
+          <TextInput
+            style={styles.notesInput}
+            placeholder="Add a note for this order"
+            placeholderTextColor={Colors.textTertiary}
+            value={notes}
+            onChangeText={setNotes}
+            multiline
+          />
+        </View>
+
+        <OrderFooter quote={quote} hint={hint} canSubmit={canSubmit} submitting={submitting} onSubmit={handleSubmit} />
+      </View>
     </ScrollView>
   );
 }
 
-function QuoteSummary({ quote, hint }: { quote: QuoteState; hint: number | null }) {
+function OrderFooter({
+  quote,
+  hint,
+  canSubmit,
+  submitting,
+  onSubmit,
+}: {
+  quote: QuoteState;
+  hint: number | null;
+  canSubmit: boolean;
+  submitting: boolean;
+  onSubmit: () => void;
+}) {
+  let message: string | null = null;
+  let totalText = formatCurrency(0);
+  let piecesText = '0 pieces (1 set)';
+
   if (quote.status === 'idle') {
-    return (
-      <View style={styles.quoteCard}>
-        <Text style={styles.quoteHint}>Enter a quantity to see your order total.</Text>
-      </View>
-    );
+    message = 'Enter a quantity to see your order total.';
+  } else if (quote.status === 'error') {
+    message = quote.error.message;
+  } else if (quote.status === 'success') {
+    const { quote: data } = quote;
+    totalText = formatCurrency(data.total_amount);
+    piecesText = `${data.total_pieces} ${data.total_pieces === 1 ? 'piece' : 'pieces'} (1 set)`;
+    if (data.uses_discount) {
+      message = 'Bulk discount applied';
+    } else if (hint != null && hint > 0) {
+      message = `Add ${hint} more ${hint === 1 ? 'piece' : 'pieces'} per design for a better price.`;
+    }
   }
-
-  if (quote.status === 'loading') {
-    return (
-      <View style={styles.quoteCard}>
-        <ActivityIndicator color={Colors.accent} />
-      </View>
-    );
-  }
-
-  if (quote.status === 'error') {
-    return (
-      <View style={styles.quoteCard}>
-        <Text style={styles.quoteHint}>{quote.error.message}</Text>
-      </View>
-    );
-  }
-
-  const { quote: data } = quote;
 
   return (
-    <View style={styles.quoteCard}>
-      <View style={styles.summaryRow}>
-        <Text style={styles.quoteLabel}>Pieces per design</Text>
-        <Text style={styles.quoteValue}>{data.pieces_per_design}</Text>
+    <View style={styles.footer}>
+      {message ? <Text style={styles.footerMessage}>{message}</Text> : null}
+      <View style={styles.footerRow}>
+        {quote.status === 'loading' ? (
+          <ActivityIndicator color={Colors.accent} />
+        ) : (
+          <View>
+            <Text style={styles.footerTotal}>{totalText}</Text>
+            <Text style={styles.footerPieces}>{piecesText}</Text>
+          </View>
+        )}
+        <Pressable
+          style={({ pressed }) => [styles.footerButton, (!canSubmit || pressed) && styles.footerButtonDisabled]}
+          onPress={onSubmit}
+          disabled={!canSubmit}>
+          {submitting ? (
+            <ActivityIndicator color={Colors.surface} />
+          ) : (
+            <>
+              <Text style={styles.footerButtonText}>Place Order</Text>
+              <Ionicons name="arrow-forward" size={16} color={Colors.surface} />
+            </>
+          )}
+        </Pressable>
       </View>
-      <View style={styles.summaryRow}>
-        <Text style={styles.quoteLabel}>Total pieces</Text>
-        <Text style={styles.quoteValue}>{data.total_pieces}</Text>
-      </View>
-      <View style={[styles.summaryRow, styles.totalRow]}>
-        <Text style={styles.quoteTotalLabel}>Order total</Text>
-        <Text style={styles.quoteTotal}>{formatCurrency(data.total_amount)}</Text>
-      </View>
-      {data.uses_discount ? (
-        <View style={styles.discountBadge}>
-          <Text style={styles.discountBadgeText}>Bulk discount applied</Text>
-        </View>
-      ) : hint != null && hint > 0 ? (
-        <Text style={styles.quoteHint}>
-          Add {hint} more {hint === 1 ? 'piece' : 'pieces'} per design for a better price.
-        </Text>
-      ) : null}
     </View>
   );
 }
@@ -291,16 +326,58 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     gap: Spacing.lg,
   },
+  hero: {
+    width: '100%',
+    backgroundColor: Colors.divider,
+    justifyContent: 'flex-end',
+  },
+  heroPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroScrim: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '22%',
+  },
+  // Four stacked translucent bands standing in for a gradient — no native
+  // module required, so it works in Expo Go and in dev-client builds that
+  // predate expo-linear-gradient's install without a native rebuild.
+  scrimBand: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: Colors.brandBlack,
+    opacity: 0.15,
+  },
+  heroTitle: {
+    color: Colors.surface,
+    fontSize: 24,
+    fontWeight: Typography.weightBold,
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.lg,
+  },
+  bookButtonWrap: {
+    marginTop: -20,
+    marginBottom: Spacing.md,
+    paddingHorizontal: Spacing.md,
+  },
   bookButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.xs,
     backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.accent,
     borderRadius: Radius.pill,
-    paddingVertical: 12,
+    paddingVertical: 14,
+    shadowColor: Colors.brandBlack,
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
   bookButtonPressed: {
     opacity: 0.7,
@@ -309,6 +386,25 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: Typography.weightSemibold,
     color: Colors.accent,
+  },
+  body: {
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.lg,
+  },
+  designsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  designsHeaderCount: {
+    fontSize: 17,
+    fontWeight: Typography.weightSemibold,
+    color: Colors.textPrimary,
+  },
+  designsHeaderNote: {
+    fontSize: 13,
+    fontWeight: Typography.weightRegular,
+    color: Colors.textTertiary,
   },
   designGrid: {
     flexDirection: 'row',
@@ -331,62 +427,6 @@ const styles = StyleSheet.create({
     color: Colors.textTertiary,
     marginTop: -Spacing.xs,
   },
-  quoteCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.card,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.md,
-    gap: Spacing.sm,
-    alignItems: 'stretch',
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  totalRow: {
-    borderTopWidth: 1,
-    borderTopColor: Colors.divider,
-    paddingTop: Spacing.sm,
-  },
-  quoteLabel: {
-    fontSize: 14,
-    fontWeight: Typography.weightRegular,
-    color: Colors.textSecondary,
-  },
-  quoteValue: {
-    fontSize: 14,
-    fontWeight: Typography.weightSemibold,
-    color: Colors.textPrimary,
-  },
-  quoteTotalLabel: {
-    fontSize: 15,
-    fontWeight: Typography.weightSemibold,
-    color: Colors.textPrimary,
-  },
-  quoteTotal: {
-    fontSize: 20,
-    fontWeight: Typography.weightBold,
-    color: Colors.textPrimary,
-  },
-  quoteHint: {
-    fontSize: 13,
-    fontWeight: Typography.weightRegular,
-    color: Colors.textTertiary,
-    textAlign: 'center',
-  },
-  discountBadge: {
-    backgroundColor: StatusColors.dispatched.bg,
-    borderRadius: Radius.pill,
-    paddingVertical: 6,
-    alignItems: 'center',
-  },
-  discountBadgeText: {
-    fontSize: 13,
-    fontWeight: Typography.weightSemibold,
-    color: StatusColors.dispatched.text,
-  },
   notesInput: {
     backgroundColor: Colors.surface,
     borderWidth: 1,
@@ -400,19 +440,50 @@ const styles = StyleSheet.create({
     minHeight: 80,
     textAlignVertical: 'top',
   },
-  submitButton: {
+  footer: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.card,
+    padding: Spacing.md,
+    gap: Spacing.xs,
+  },
+  footerMessage: {
+    fontSize: 12,
+    fontWeight: Typography.weightRegular,
+    color: Colors.textTertiary,
+  },
+  footerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  footerTotal: {
+    fontSize: 20,
+    fontWeight: Typography.weightBold,
+    color: Colors.textPrimary,
+  },
+  footerPieces: {
+    fontSize: 13,
+    fontWeight: Typography.weightRegular,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  footerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
     backgroundColor: Colors.accent,
     borderRadius: Radius.pill,
     paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: Spacing.lg,
   },
-  submitButtonDisabled: {
+  footerButtonDisabled: {
     opacity: 0.5,
   },
-  submitButtonText: {
+  footerButtonText: {
     color: Colors.surface,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: Typography.weightSemibold,
   },
 });

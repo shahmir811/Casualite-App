@@ -1,19 +1,26 @@
 import { DrawerActions, useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { useCallback, useRef } from 'react';
-import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
 import { CatalogueTile } from '@/components/catalogue-tile';
 import { ScreenHeader } from '@/components/screen-header';
 import { CatalogueTileSkeleton } from '@/components/skeleton';
 import { EmptyView, ErrorView } from '@/components/state-views';
-import { Colors, Spacing } from '@/constants/theme';
+import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { CatalogueSummary } from '@/lib/types';
 import { useApiQuery } from '@/lib/use-api-query';
+
+// Visual only, per the owner's 2026-09-11 design feedback — /api/catalogues
+// only ever returns open catalogues (CLAUDE.md §6), so there's no data yet
+// to tell "New" from "Upcoming" from "Past". Only "All" actually filters;
+// the rest are placeholders until the backend carries that distinction.
+const FILTERS = ['All', 'New', 'Upcoming', 'Past'] as const;
 
 export default function CataloguesScreen() {
   const router = useRouter();
   const navigation = useNavigation();
+  const [activeFilter, setActiveFilter] = useState<(typeof FILTERS)[number]>('All');
   const { state, refreshing, refetch, onRefresh } = useApiQuery<{ catalogues: CatalogueSummary[] }>(
     '/api/catalogues'
   );
@@ -35,12 +42,29 @@ export default function CataloguesScreen() {
 
   const header = <ScreenHeader title="Catalogues" onLeftPress={() => navigation.dispatch(DrawerActions.openDrawer())} />;
 
+  const filterRow = (
+    <View style={styles.filterRow}>
+      {FILTERS.map((filter) => {
+        const active = filter === activeFilter;
+        return (
+          <Pressable
+            key={filter}
+            style={[styles.filterPill, active && styles.filterPillActive]}
+            onPress={() => setActiveFilter(filter)}>
+            <Text style={[styles.filterText, active && styles.filterTextActive]}>{filter}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+
   if (state.status === 'loading') {
     return (
       <View style={styles.container}>
         {header}
-        <View style={styles.grid}>
-          {Array.from({ length: 6 }).map((_, index) => (
+        {filterRow}
+        <View style={styles.list}>
+          {Array.from({ length: 4 }).map((_, index) => (
             <CatalogueTileSkeleton key={index} />
           ))}
         </View>
@@ -79,11 +103,10 @@ export default function CataloguesScreen() {
   return (
     <View style={styles.container}>
       {header}
+      {filterRow}
       <FlatList
         data={catalogues}
         keyExtractor={(item) => String(item.id)}
-        numColumns={2}
-        columnWrapperStyle={styles.row}
         renderItem={({ item }) => (
           <CatalogueTile catalogue={item} onPress={() => router.push(`/catalogues/${item.id}`)} />
         )}
@@ -99,14 +122,31 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-  grid: {
+  filterRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.md,
-    padding: Spacing.md,
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.divider,
   },
-  row: {
-    gap: Spacing.md,
+  filterPill: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs + 2,
+    borderRadius: Radius.pill,
+    backgroundColor: Colors.surfacePressed,
+  },
+  filterPillActive: {
+    backgroundColor: Colors.accent,
+  },
+  filterText: {
+    fontSize: 13,
+    fontWeight: Typography.weightMedium,
+    color: Colors.textPrimary,
+  },
+  filterTextActive: {
+    color: Colors.surface,
   },
   list: {
     padding: Spacing.md,

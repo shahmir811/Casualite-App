@@ -22,7 +22,11 @@ export default function SettingsScreen() {
 
   return (
     <View style={styles.screen}>
-      <ScreenHeader title="Settings" leftIcon="chevron-back" onLeftPress={() => router.back()} />
+      <ScreenHeader
+        title="Settings"
+        leftIcon="chevron-back"
+        onLeftPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+      />
       <View style={styles.container}>
       <View style={styles.group}>
         <SettingsRow

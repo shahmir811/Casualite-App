@@ -8,16 +8,22 @@ import { ScreenHeader } from '@/components/screen-header';
 import { AnnouncementRowSkeleton } from '@/components/skeleton';
 import { EmptyView, ErrorView } from '@/components/state-views';
 import { Colors } from '@/constants/theme';
-import { Announcement } from '@/lib/types';
-import { useApiQuery } from '@/lib/use-api-query';
+import { useAnnouncements } from '@/lib/announcements-context';
 
 export default function AnnouncementsScreen() {
   const router = useRouter();
-  const { state, refreshing, refetch, onRefresh } = useApiQuery<{ announcements: Announcement[] }>(
-    '/api/announcements'
-  );
+  // Shared with Home's bell and the drawer's Notifications badge — see
+  // lib/announcements-context.tsx. Refetching here (focus/pull-to-refresh)
+  // updates those too, since it's the same underlying state.
+  const { state, refreshing, refetch, onRefresh } = useAnnouncements();
 
-  const header = <ScreenHeader title="Notifications" leftIcon="chevron-back" onLeftPress={() => router.back()} />;
+  const header = (
+    <ScreenHeader
+      title="Notifications"
+      leftIcon="chevron-back"
+      onLeftPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+    />
+  );
 
   // Refetch whenever this screen regains focus (e.g. back from a detail
   // screen that just marked one read) so the unread dot clears without a

@@ -47,18 +47,19 @@ export function Skeleton({
   );
 }
 
-// Mirrors components/catalogue-tile.tsx: same responsive two-column square
-// photo as DesignTileSkeleton, plus a name line, meta line, and a pill.
+// Mirrors components/catalogue-tile.tsx: full-width row with a portrait
+// cover photo, a name line, a meta line, and a circular action placeholder.
 export function CatalogueTileSkeleton() {
-  const { width: screenWidth } = useWindowDimensions();
-  const tileWidth = (screenWidth - Spacing.md * 2 - Spacing.md) / 2;
-
   return (
-    <View style={{ width: tileWidth, gap: 6 }}>
-      <Skeleton width={tileWidth} height={tileWidth} radius={Radius.chip} />
-      <Skeleton width="75%" height={14} radius={4} />
-      <Skeleton width="45%" height={13} radius={4} />
-      <Skeleton width={72} height={20} radius={Radius.pill} />
+    <View style={styles.catalogueRow}>
+      <Skeleton width={104} height={136} radius={16} />
+      <View style={styles.catalogueRowBody}>
+        <View style={{ gap: 6 }}>
+          <Skeleton width="70%" height={16} radius={4} />
+          <Skeleton width="50%" height={13} radius={4} />
+        </View>
+        <Skeleton width={40} height={40} radius={Radius.pill} style={styles.catalogueRowArrow} />
+      </View>
     </View>
   );
 }
@@ -101,10 +102,10 @@ export function AnnouncementRowSkeleton() {
 }
 
 // Mirrors components/design-tile.tsx: square photo, name line, price line —
-// same responsive two-column width so the grid doesn't jump on load.
+// same responsive three-column width so the grid doesn't jump on load.
 export function DesignTileSkeleton() {
   const { width: screenWidth } = useWindowDimensions();
-  const tileWidth = (screenWidth - Spacing.md * 2 - Spacing.md) / 2;
+  const tileWidth = Math.floor((screenWidth - Spacing.md * 2 - Spacing.md * 2) / 3);
 
   return (
     <View style={{ width: tileWidth, gap: 6 }}>
@@ -171,5 +172,22 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
+  },
+  catalogueRow: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.sm,
+  },
+  catalogueRowBody: {
+    flex: 1,
+    justifyContent: 'space-between',
+    paddingVertical: Spacing.xs,
+  },
+  catalogueRowArrow: {
+    alignSelf: 'flex-end',
   },
 });

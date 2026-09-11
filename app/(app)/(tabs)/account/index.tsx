@@ -11,6 +11,7 @@ import { useApiQuery } from '@/lib/use-api-query';
 
 type LedgerResponse = {
   advance_credit_balance: string;
+  outstanding_balance: string;
   ledger: LedgerEntry[];
 };
 
@@ -45,7 +46,7 @@ export default function AccountScreen() {
     );
   }
 
-  const { advance_credit_balance, ledger } = state.data;
+  const { outstanding_balance, ledger } = state.data;
 
   return (
     <View style={styles.container}>
@@ -54,7 +55,7 @@ export default function AccountScreen() {
         data={ledger}
         keyExtractor={(item) => String(item.id)}
         renderItem={({ item }) => <LedgerRow entry={item} />}
-        ListHeaderComponent={<AdvanceBalanceCard balance={advance_credit_balance} />}
+        ListHeaderComponent={<OutstandingBalanceCard balance={outstanding_balance} />}
         ListEmptyComponent={<EmptyView icon="wallet-outline" message="No transactions yet." />}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
@@ -63,11 +64,22 @@ export default function AccountScreen() {
   );
 }
 
-function AdvanceBalanceCard({ balance }: { balance: string }) {
+function OutstandingBalanceCard({ balance }: { balance: string }) {
+  // Mirrors the web ledger's sign convention (CLAUDE.md Section 7): positive =
+  // customer owes Casualite (Debit), negative = customer is in credit.
+  const amount = parseFloat(balance);
+  const isDebit = amount > 0;
+  const isSettled = amount === 0;
+
   return (
     <View style={styles.balanceCard}>
-      <Text style={styles.balanceLabel}>Advance Credit Balance</Text>
-      <Text style={styles.balanceValue}>{formatCurrency(balance)}</Text>
+      <Text style={styles.balanceLabel}>Outstanding Balance</Text>
+      <Text style={styles.balanceValue}>{formatCurrency(Math.abs(amount))}</Text>
+      {!isSettled && (
+        <Text style={[styles.balanceTag, { color: isDebit ? Colors.error : Colors.success }]}>
+          {isDebit ? 'You owe this amount' : 'In your favor'}
+        </Text>
+      )}
     </View>
   );
 }
@@ -121,6 +133,10 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: Typography.weightBold,
     color: '#FFFFFF',
+  },
+  balanceTag: {
+    fontSize: 13,
+    fontWeight: Typography.weightSemibold,
   },
   row: {
     flexDirection: 'row',
