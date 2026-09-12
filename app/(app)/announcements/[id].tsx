@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 
+import { AudioMessagePlayer } from '@/components/audio-message-player';
 import { Skeleton } from '@/components/skeleton';
 import { EmptyView, ErrorView } from '@/components/state-views';
 import { Colors, Spacing, Typography } from '@/constants/theme';
@@ -82,6 +83,9 @@ export default function AnnouncementDetailScreen() {
       <View style={styles.section}>
         <Text style={styles.title}>{announcement.title}</Text>
         <Text style={styles.date}>{formatDateTime(announcement.sent_at)}</Text>
+        {announcement.has_audio && announcement.audio_url ? (
+          <AudioMessagePlayer uri={announcement.audio_url} />
+        ) : null}
         <Text style={styles.body}>{announcement.body}</Text>
       </View>
     </ScrollView>

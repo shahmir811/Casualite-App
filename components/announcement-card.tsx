@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -28,6 +29,12 @@ export function AnnouncementCard({ announcement, onPress }: { announcement: Anno
         <Text style={styles.body} numberOfLines={4}>
           {announcement.body}
         </Text>
+        {announcement.has_audio ? (
+          <View style={styles.audioBadge}>
+            <Ionicons name="mic" size={13} color={Colors.textTertiary} />
+            <Text style={styles.audioBadgeText}>Voice message</Text>
+          </View>
+        ) : null}
         {image ? (
           <Image
             source={{ uri: image }}
@@ -96,6 +103,17 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weightRegular,
     color: Colors.textSecondary,
     lineHeight: 21,
+  },
+  audioBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  audioBadgeText: {
+    fontSize: 13,
+    fontWeight: Typography.weightRegular,
+    color: Colors.textTertiary,
   },
   image: {
     width: '100%',

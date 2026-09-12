@@ -171,6 +171,8 @@ export type Announcement = {
   body: string;
   image_url: string | null;
   image_urls: string[];
+  has_audio: boolean;
+  audio_url: string | null;
   sent_at: string;
   read_at: string | null;
 };
