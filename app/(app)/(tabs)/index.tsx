@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { DrawerActions, useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import { useCallback, useEffect, useRef } from 'react';
@@ -9,34 +9,31 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AnnouncementCard } from '@/components/announcement-card';
 import { BrandMasthead } from '@/components/brand-masthead';
 import { DesignPhoto } from '@/components/design-photo';
-import { OrderStatusTracker } from '@/components/order-status-tracker';
+import { HomeHero } from '@/components/home-hero';
 import { AnnouncementRowSkeleton, Skeleton } from '@/components/skeleton';
+import { StatusBadge } from '@/components/status-badge';
+import { UnreadBadge } from '@/components/unread-badge';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
-import { useAuth } from '@/lib/auth-context';
-import { formatCurrency } from '@/lib/format';
+import { useAnnouncements } from '@/lib/announcements-context';
+import { formatCurrency, formatRelativeTime } from '@/lib/format';
 import { setBadgeCount } from '@/lib/push-notifications';
-import { Announcement, CatalogueSummary, OrderSummary } from '@/lib/types';
+import { CatalogueSummary, OrderSummary } from '@/lib/types';
 import { useApiQuery } from '@/lib/use-api-query';
 
 type LedgerSummary = { advance_credit_balance: string };
-const CATALOGUE_TEASER_SIZE = 112;
+const CATALOGUE_TEASER_WIDTH = 132;
+const CATALOGUE_TEASER_HEIGHT = 172;
 
 export default function HomeScreen() {
-  const { customer } = useAuth();
   const router = useRouter();
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
 
-  // Reuses the same unpaginated endpoint the Announcements screen fetches —
-  // "any unread" is just a client-side check over the full list, so no
-  // dedicated unread-count endpoint is needed.
-  const { state: announcementsState, refetch: refetchAnnouncements } = useApiQuery<{
-    announcements: Announcement[];
-  }>('/api/announcements');
-  const unreadCount =
-    announcementsState.status === 'success'
-      ? announcementsState.data.announcements.filter((a) => a.read_at === null).length
-      : 0;
-  const hasUnread = unreadCount > 0;
+  // Shared with the drawer's Notifications row and the Announcements list/
+  // detail screens — see lib/announcements-context.tsx. Those screens
+  // refetch this shared state themselves the moment something is marked
+  // read, so Home doesn't need its own focus-triggered refetch for this one.
+  const { state: announcementsState, unreadCount } = useAnnouncements();
 
   // Same endpoint the Orders list screen uses — only the most recent order
   // is shown here, as a status card, not a second orders list.
@@ -48,6 +45,12 @@ export default function HomeScreen() {
     ordersState.status === 'success'
       ? ordersState.data.orders.reduce((sum, order) => sum + parseFloat(order.outstanding_balance), 0)
       : 0;
+  // "Active" = still moving through the pipeline — not yet fully dispatched
+  // and not cancelled.
+  const activeOrdersCount =
+    ordersState.status === 'success'
+      ? ordersState.data.orders.filter((order) => order.status !== 'dispatched' && order.status !== 'cancelled').length
+      : 0;
 
   // Same endpoint the Account & Ledger screen uses — only the balance
   // figure is shown here, not the transaction history.
@@ -57,14 +60,28 @@ export default function HomeScreen() {
   const latestAnnouncement =
     announcementsState.status === 'success' ? (announcementsState.data.announcements[0] ?? null) : null;
 
-  // Only catalogues an order can actually be placed on — a "come order
-  // these" teaser shouldn't tease ones that are sold out or already ordered.
+  // /api/catalogues now returns every catalogue, open and closed (newest
+  // first — CatalogueController@index's ->latest(), defaulting to
+  // created_at desc), for the Catalogues list's full browsing history. This
+  // teaser strip is specifically "what can I order right now", so it still
+  // narrows to open, not-sold-out, not-already-ordered ones.
   const { state: cataloguesState, refetch: refetchCatalogues } = useApiQuery<{ catalogues: CatalogueSummary[] }>(
     '/api/catalogues'
   );
   const orderableCatalogues =
     cataloguesState.status === 'success'
-      ? cataloguesState.data.catalogues.filter((c) => !c.sold_out && !c.already_ordered)
+      ? cataloguesState.data.catalogues.filter((c) => c.status === 'open' && !c.sold_out && !c.already_ordered)
+      : [];
+  // The first entry is always the most recently created catalogue overall
+  // (open or closed) — no separate timestamp needed.
+  const newestCatalogueId = cataloguesState.status === 'success' ? cataloguesState.data.catalogues[0]?.id : undefined;
+  // Top 5 most recent catalogues with a cover photo, open or closed — this
+  // carousel is a decorative "recent collections" showcase, not an order
+  // shortcut (its button always opens the Catalogues list), so closed ones
+  // are still worth showing.
+  const heroCatalogues =
+    cataloguesState.status === 'success'
+      ? cataloguesState.data.catalogues.filter((c) => Boolean(c.cover_photo_url)).slice(0, 5)
       : [];
 
   // Home stays mounted for the lifetime of the signed-in session (see the
@@ -78,11 +95,10 @@ export default function HomeScreen() {
   }, [announcementsState.status, unreadCount]);
 
   const refetchAll = useCallback(() => {
-    refetchAnnouncements();
     refetchOrders();
     refetchLedger();
     refetchCatalogues();
-  }, [refetchAnnouncements, refetchOrders, refetchLedger, refetchCatalogues]);
+  }, [refetchOrders, refetchLedger, refetchCatalogues]);
 
   // A push arriving while the app is already in the foreground doesn't fire
   // the AppState 'active' transition below, so without this the unread count
@@ -124,20 +140,32 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <BrandMasthead
+        left={
+          <Pressable
+            style={({ pressed }) => [styles.bellWrap, pressed && styles.bellWrapPressed]}
+            onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+            hitSlop={8}>
+            <Ionicons name="menu-outline" size={24} color="#FFFFFF" />
+          </Pressable>
+        }
         right={
           <Pressable
             style={({ pressed }) => [styles.bellWrap, pressed && styles.bellWrapPressed]}
             onPress={() => router.push('/announcements')}
             hitSlop={8}>
             <Ionicons name="notifications-outline" size={22} color="#FFFFFF" />
-            {hasUnread ? <View style={styles.bellDot} /> : null}
+            <UnreadBadge count={unreadCount} style={styles.bellBadge} />
           </Pressable>
         }
       />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingBottom: Spacing.lg + insets.bottom + Spacing.lg }]}>
-      <Text style={styles.greeting}>Welcome, {customer?.name}</Text>
+      <HomeHero
+        catalogues={heroCatalogues}
+        newestId={newestCatalogueId}
+        onExplorePress={() => router.push('/catalogues')}
+      />
 
       {announcementsState.status === 'loading' ? (
         <View style={styles.announcementCard}>
@@ -152,60 +180,96 @@ export default function HomeScreen() {
         </View>
       ) : null}
 
-      {ledgerState.status === 'loading' ? (
-        <View style={styles.balanceCard}>
-          <Skeleton width={120} height={11} radius={4} />
-          <Skeleton width={150} height={26} radius={4} />
+      {ordersState.status === 'loading' || ledgerState.status === 'loading' ? (
+        <View style={styles.section}>
+          <View style={styles.statRow}>
+            {Array.from({ length: 2 }).map((_, index) => (
+              <View key={index} style={styles.statCard}>
+                <Skeleton width={32} height={32} radius={16} />
+                <Skeleton width="50%" height={20} radius={4} />
+                <Skeleton width="75%" height={12} radius={4} />
+              </View>
+            ))}
+          </View>
         </View>
-      ) : ledgerState.status === 'success' ? (
-        <Pressable
-          style={({ pressed }) => [styles.balanceCard, pressed && styles.orderCardPressed]}
-          onPress={() => router.push('/ledger')}>
-          <Text style={styles.balanceLabel}>Outstanding Balance</Text>
-          {outstandingTotal > 0 ? (
-            <Text style={[styles.balanceValue, styles.balanceValueDue]}>{formatCurrency(outstandingTotal)}</Text>
-          ) : (
-            <Text style={[styles.balanceValue, styles.balanceValueClear]}>All paid up</Text>
-          )}
-          {advanceCredit > 0 ? (
-            <View style={styles.balancePill}>
-              <Text style={styles.balancePillText}>Advance credit {formatCurrency(advanceCredit)}</Text>
-            </View>
-          ) : null}
-        </Pressable>
+      ) : ordersState.status === 'success' && ledgerState.status === 'success' ? (
+        <View style={styles.section}>
+          <View style={styles.statRow}>
+            <Pressable
+              style={({ pressed }) => [styles.statCard, pressed && styles.statCardPressed]}
+              onPress={() => router.push('/orders')}>
+              <View style={styles.statIconWrap}>
+                <Ionicons name="bag-outline" size={18} color={Colors.textPrimary} />
+              </View>
+              <Text style={styles.statValue}>{activeOrdersCount}</Text>
+              <Text style={styles.statLabel}>Active Orders</Text>
+              <View style={styles.statArrow}>
+                <Ionicons name="arrow-forward" size={16} color={Colors.textPrimary} />
+              </View>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.statCard, pressed && styles.statCardPressed]}
+              onPress={() => router.push('/account')}>
+              <View style={[styles.statIconWrap, outstandingTotal > 0 && styles.statIconWrapWarn]}>
+                <Ionicons
+                  name={outstandingTotal > 0 ? 'alert-circle-outline' : 'wallet-outline'}
+                  size={18}
+                  color={outstandingTotal > 0 ? Colors.error : Colors.textPrimary}
+                />
+              </View>
+              <Text style={[styles.statValue, outstandingTotal > 0 && styles.statValueWarn]}>
+                {formatCurrency(outstandingTotal > 0 ? outstandingTotal : advanceCredit)}
+              </Text>
+              <Text style={styles.statLabel}>{outstandingTotal > 0 ? 'Outstanding Balance' : 'Credit Balance'}</Text>
+              <View style={styles.statArrow}>
+                <Ionicons name="arrow-forward" size={16} color={Colors.textPrimary} />
+              </View>
+            </Pressable>
+          </View>
+        </View>
       ) : null}
 
       {ordersState.status === 'loading' ? (
-        <View style={styles.orderCard}>
-          <Skeleton width="60%" height={14} radius={4} />
-          <View style={styles.orderCardSkeletonDots}>
-            {Array.from({ length: 4 }).map((_, index) => (
-              <Skeleton key={index} width={12} height={12} radius={6} />
-            ))}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Recent Update</Text>
+          <View style={styles.updateCard}>
+            <Skeleton width={40} height={40} radius={20} />
+            <View style={styles.updateSkeletonBody}>
+              <Skeleton width="70%" height={14} radius={4} />
+              <Skeleton width="45%" height={12} radius={4} />
+            </View>
           </View>
-          <Skeleton width="45%" height={13} radius={4} />
         </View>
       ) : latestOrder ? (
-        <Pressable
-          style={({ pressed }) => [styles.orderCard, pressed && styles.orderCardPressed]}
-          onPress={() => router.push(`/orders/${latestOrder.id}`)}>
-          <View style={styles.orderCardTop}>
-            <Text style={styles.orderCardLabel}>
-              Order #{latestOrder.order_number} · {latestOrder.catalogue.name}
-            </Text>
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recent Update</Text>
+            <Pressable onPress={() => router.push('/orders')} hitSlop={8}>
+              <Text style={styles.sectionLink}>View All</Text>
+            </Pressable>
+          </View>
+          <Pressable
+            style={({ pressed }) => [styles.updateCard, pressed && styles.orderCardPressed]}
+            onPress={() => router.push(`/orders/${latestOrder.id}`)}>
+            <View style={styles.updateIconWrap}>
+              <Ionicons name="bag-handle-outline" size={18} color={Colors.textPrimary} />
+            </View>
+            <View style={styles.updateBody}>
+              <Text style={styles.updateTitle} numberOfLines={1}>
+                Order #{latestOrder.order_number}
+              </Text>
+              <Text style={styles.updateMeta} numberOfLines={1}>
+                {latestOrder.total_pieces} {latestOrder.total_pieces === 1 ? 'piece' : 'pieces'} ·{' '}
+                {latestOrder.catalogue.name}
+              </Text>
+            </View>
+            <View style={styles.updateRight}>
+              <StatusBadge status={latestOrder.status} />
+              <Text style={styles.updateTime}>{formatRelativeTime(latestOrder.created_at)}</Text>
+            </View>
             <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
-          </View>
-          <OrderStatusTracker status={latestOrder.status} compact />
-          <View style={styles.orderCardFoot}>
-            <Text style={styles.orderCardMeta}>
-              {latestOrder.total_pieces} {latestOrder.total_pieces === 1 ? 'piece' : 'pieces'} ·{' '}
-              {formatCurrency(latestOrder.total_amount)}
-            </Text>
-            {parseFloat(latestOrder.outstanding_balance) > 0 ? (
-              <Text style={styles.orderCardDue}>{formatCurrency(latestOrder.outstanding_balance)} due</Text>
-            ) : null}
-          </View>
-        </Pressable>
+          </Pressable>
+        </View>
       ) : ordersState.status === 'success' ? (
         <Pressable
           style={({ pressed }) => [styles.emptyOrderCard, pressed && styles.orderCardPressed]}
@@ -225,7 +289,7 @@ export default function HomeScreen() {
           <View style={styles.catalogueStrip}>
             {Array.from({ length: 3 }).map((_, index) => (
               <View key={index} style={styles.catalogueTeaser}>
-                <Skeleton width={CATALOGUE_TEASER_SIZE} height={CATALOGUE_TEASER_SIZE} radius={Radius.chip} />
+                <Skeleton width={CATALOGUE_TEASER_WIDTH} height={CATALOGUE_TEASER_HEIGHT} radius={Radius.chip} />
                 <Skeleton width="75%" height={12} radius={4} />
               </View>
             ))}
@@ -249,7 +313,14 @@ export default function HomeScreen() {
               <Pressable
                 style={({ pressed }) => [styles.catalogueTeaser, pressed && styles.catalogueTeaserPressed]}
                 onPress={() => router.push(`/catalogues/${catalogue.id}`)}>
-                <DesignPhoto url={catalogue.cover_photo_url} size={CATALOGUE_TEASER_SIZE} />
+                <View>
+                  <DesignPhoto url={catalogue.cover_photo_url} size={CATALOGUE_TEASER_WIDTH} height={CATALOGUE_TEASER_HEIGHT} />
+                  {catalogue.id === newestCatalogueId ? (
+                    <View style={styles.newBadge}>
+                      <Text style={styles.newBadgeText}>New</Text>
+                    </View>
+                  ) : null}
+                </View>
                 <Text style={styles.catalogueTeaserName} numberOfLines={1}>
                   {catalogue.name}
                 </Text>
@@ -258,36 +329,8 @@ export default function HomeScreen() {
           />
         </View>
       ) : null}
-
-      <View style={styles.nav}>
-        <NavRow icon="pricetags-outline" label="Browse Catalogues" onPress={() => router.push('/catalogues')} />
-        <View style={styles.navDivider} />
-        <NavRow icon="receipt-outline" label="My Orders" onPress={() => router.push('/orders')} />
-        <View style={styles.navDivider} />
-        <NavRow icon="wallet-outline" label="Account & Ledger" onPress={() => router.push('/ledger')} />
-        <View style={styles.navDivider} />
-        <NavRow icon="settings-outline" label="Settings" onPress={() => router.push('/settings')} />
-      </View>
       </ScrollView>
     </View>
-  );
-}
-
-function NavRow({
-  icon,
-  label,
-  onPress,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable style={({ pressed }) => [styles.navRow, pressed && styles.navRowPressed]} onPress={onPress}>
-      <Ionicons name={icon} size={20} color={Colors.textPrimary} />
-      <Text style={styles.navLabel}>{label}</Text>
-      <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
-    </Pressable>
   );
 }
 
@@ -311,21 +354,12 @@ const styles = StyleSheet.create({
   bellWrapPressed: {
     backgroundColor: 'rgba(255,255,255,0.14)',
   },
-  bellDot: {
+  bellBadge: {
     position: 'absolute',
-    top: 1,
-    right: 1,
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-    backgroundColor: '#FFFFFF',
+    top: -4,
+    right: -6,
     borderWidth: 1.5,
     borderColor: Colors.brandBlack,
-  },
-  greeting: {
-    fontSize: 24,
-    fontWeight: Typography.weightSemibold,
-    color: Colors.textPrimary,
   },
   announcementCard: {
     backgroundColor: Colors.surface,
@@ -334,84 +368,107 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     overflow: 'hidden',
   },
-  balanceCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.card,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.md,
-    gap: 6,
-  },
-  balanceLabel: {
-    fontSize: 11,
-    fontWeight: Typography.weightSemibold,
-    color: Colors.textTertiary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  balanceValue: {
-    fontSize: 26,
-    fontWeight: Typography.weightBold,
-  },
-  balanceValueDue: {
-    color: Colors.error,
-  },
-  balanceValueClear: {
-    color: Colors.success,
-  },
-  balancePill: {
-    alignSelf: 'flex-start',
-    backgroundColor: Colors.highlightSoft,
-    borderRadius: Radius.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    marginTop: 2,
-  },
-  balancePillText: {
-    fontSize: 12,
-    fontWeight: Typography.weightSemibold,
-    color: Colors.accent,
-  },
-  orderCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.card,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.md,
-    gap: Spacing.md,
+  section: {
+    gap: Spacing.sm,
   },
   orderCardPressed: {
     backgroundColor: Colors.surfacePressed,
   },
-  orderCardTop: {
+  statRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: Spacing.sm,
   },
-  orderCardLabel: {
+  statCard: {
     flex: 1,
-    fontSize: 14,
-    fontWeight: Typography.weightSemibold,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.card,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.md,
+    gap: 4,
+  },
+  statCardPressed: {
+    backgroundColor: Colors.surfacePressed,
+  },
+  statIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  statIconWrapWarn: {
+    backgroundColor: Colors.errorSoft,
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: Typography.weightBold,
     color: Colors.textPrimary,
   },
-  orderCardFoot: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  statValueWarn: {
+    color: Colors.error,
   },
-  orderCardMeta: {
+  statLabel: {
     fontSize: 13,
     fontWeight: Typography.weightRegular,
     color: Colors.textSecondary,
   },
-  orderCardDue: {
-    fontSize: 13,
-    fontWeight: Typography.weightSemibold,
-    color: Colors.error,
+  statArrow: {
+    alignSelf: 'flex-end',
+    width: 32,
+    height: 32,
+    borderRadius: Radius.pill,
+    backgroundColor: Colors.surfacePressed,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
   },
-  orderCardSkeletonDots: {
+  updateCard: {
     flexDirection: 'row',
-    gap: 8,
+    alignItems: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.card,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.md,
+  },
+  updateSkeletonBody: {
+    flex: 1,
+    gap: 6,
+  },
+  updateIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  updateBody: {
+    flex: 1,
+    gap: 2,
+  },
+  updateTitle: {
+    fontSize: 15,
+    fontWeight: Typography.weightSemibold,
+    color: Colors.textPrimary,
+  },
+  updateMeta: {
+    fontSize: 13,
+    fontWeight: Typography.weightRegular,
+    color: Colors.textSecondary,
+  },
+  updateRight: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  updateTime: {
+    fontSize: 12,
+    fontWeight: Typography.weightRegular,
+    color: Colors.textTertiary,
   },
   emptyOrderCard: {
     backgroundColor: Colors.surface,
@@ -465,7 +522,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   catalogueTeaser: {
-    width: CATALOGUE_TEASER_SIZE,
+    width: CATALOGUE_TEASER_WIDTH,
     gap: 6,
   },
   catalogueTeaserPressed: {
@@ -475,32 +532,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: Typography.weightMedium,
     color: Colors.textPrimary,
+    textTransform: 'uppercase',
   },
-  nav: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.card,
-    borderWidth: 1,
-    borderColor: Colors.border,
+  newBadge: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    backgroundColor: Colors.brandBlack,
+    borderRadius: Radius.chip,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
-  navRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
-  },
-  navRowPressed: {
-    backgroundColor: Colors.surfacePressed,
-  },
-  navDivider: {
-    height: 1,
-    backgroundColor: Colors.divider,
-    marginLeft: Spacing.md + 20 + Spacing.sm,
-  },
-  navLabel: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: Typography.weightMedium,
-    color: Colors.textPrimary,
+  newBadgeText: {
+    fontSize: 10,
+    fontWeight: Typography.weightSemibold,
+    color: '#FFFFFF',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 });

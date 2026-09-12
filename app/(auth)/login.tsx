@@ -122,8 +122,8 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   logo: {
-    width: 220,
-    height: 155,
+    width: 185,
+    height: 130,
     alignSelf: 'center',
     marginBottom: Spacing.sm,
   },

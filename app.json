@@ -46,7 +46,9 @@
       "expo-secure-store",
       "expo-notifications",
       "@preeternal/react-native-cookie-manager",
-      "./plugins/withAdiRegistration.js"
+      "./plugins/withAdiRegistration.js",
+      "expo-asset",
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true,
