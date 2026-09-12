@@ -3,7 +3,18 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DesignGalleryViewer } from '@/components/design-gallery-viewer';
@@ -164,11 +175,14 @@ export default function CatalogueDetailScreen() {
   const heroHeight = screenWidth * 1.1;
 
   return (
-    <ScrollView
+    <KeyboardAvoidingView
       style={styles.container}
-      contentContainerStyle={{ paddingBottom: Spacing.sm + insets.bottom }}
-      keyboardShouldPersistTaps="handled">
-      <View style={[styles.hero, { height: heroHeight }]}>
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={insets.top}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: Spacing.sm + insets.bottom }}
+        keyboardShouldPersistTaps="handled">
+        <View style={[styles.hero, { height: heroHeight }]}>
         {catalogue.cover_photo_url ? (
           <Image
             source={{ uri: catalogue.cover_photo_url }}
@@ -251,7 +265,8 @@ export default function CatalogueDetailScreen() {
 
         <OrderFooter quote={quote} hint={hint} canSubmit={canSubmit} submitting={submitting} onSubmit={handleSubmit} />
       </View>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -283,7 +298,7 @@ function OrderFooter({
     if (data.uses_discount) {
       message = 'Bulk discount applied';
     } else if (hint != null && hint > 0) {
-      message = `Add ${hint} more ${hint === 1 ? 'piece' : 'pieces'} per design for a better price.`;
+      message = `Add ${hint} more ${hint === 1 ? 'piece' : 'pieces'} to get a super wholesaler price.`;
     }
   }
 

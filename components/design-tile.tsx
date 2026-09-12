@@ -28,9 +28,6 @@ export function DesignTile({ design, index, onPress }: { design: Design; index?:
         {number != null ? `${number} ${design.name}` : design.name}
       </Text>
       <Text style={styles.price}>{formatCurrency(design.selling_price)}</Text>
-      {design.discount_price ? (
-        <Text style={styles.discountPrice}>Bulk {formatCurrency(design.discount_price)}</Text>
-      ) : null}
     </Pressable>
   );
 }
@@ -52,10 +49,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: Typography.weightRegular,
     color: Colors.textSecondary,
-  },
-  discountPrice: {
-    fontSize: 12,
-    fontWeight: Typography.weightMedium,
-    color: Colors.accent,
   },
 });
