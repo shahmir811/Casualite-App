@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { DetailBackButton } from '@/components/detail-back-button';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 
@@ -51,6 +52,9 @@ export default function LoginScreen() {
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <View style={[styles.backButtonRow, { paddingTop: insets.top + Spacing.xs }]}>
+        <DetailBackButton fallbackHref="/" />
+      </View>
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: Spacing.lg + insets.bottom + Spacing.lg }]}
         keyboardShouldPersistTaps="handled"
@@ -114,6 +118,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  backButtonRow: {
+    paddingHorizontal: Spacing.lg,
   },
   content: {
     flexGrow: 1,
