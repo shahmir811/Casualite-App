@@ -46,7 +46,12 @@
         }
       ],
       "expo-secure-store",
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "sounds": ["./assets/sounds/casualite_notification_01.wav"]
+        }
+      ],
       "@preeternal/react-native-cookie-manager",
       "./plugins/withAdiRegistration.js",
       "expo-asset",
