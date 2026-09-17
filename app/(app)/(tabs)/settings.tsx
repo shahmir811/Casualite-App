@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import { DrawerActions, useNavigation } from '@react-navigation/native';
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
-import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -11,7 +11,7 @@ import { useAuth } from '@/lib/auth-context';
 
 export default function SettingsScreen() {
   const { logout } = useAuth();
-  const router = useRouter();
+  const navigation = useNavigation();
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -22,11 +22,7 @@ export default function SettingsScreen() {
 
   return (
     <View style={styles.screen}>
-      <ScreenHeader
-        title="Settings"
-        leftIcon="chevron-back"
-        onLeftPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
-      />
+      <ScreenHeader title="Settings" onLeftPress={() => navigation.dispatch(DrawerActions.openDrawer())} />
       <View style={styles.container}>
       <View style={styles.group}>
         <SettingsRow

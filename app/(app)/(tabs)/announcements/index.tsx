@@ -1,4 +1,4 @@
-import { useFocusEffect } from '@react-navigation/native';
+import { DrawerActions, useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useCallback, useRef } from 'react';
 import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
@@ -12,18 +12,13 @@ import { useAnnouncements } from '@/lib/announcements-context';
 
 export default function AnnouncementsScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   // Shared with Home's bell and the drawer's Notifications badge — see
   // lib/announcements-context.tsx. Refetching here (focus/pull-to-refresh)
   // updates those too, since it's the same underlying state.
   const { state, refreshing, refetch, onRefresh } = useAnnouncements();
 
-  const header = (
-    <ScreenHeader
-      title="Notifications"
-      leftIcon="chevron-back"
-      onLeftPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
-    />
-  );
+  const header = <ScreenHeader title="Notifications" onLeftPress={() => navigation.dispatch(DrawerActions.openDrawer())} />;
 
   // Refetch whenever this screen regains focus (e.g. back from a detail
   // screen that just marked one read) so the unread dot clears without a

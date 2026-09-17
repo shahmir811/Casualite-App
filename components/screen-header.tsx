@@ -5,12 +5,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors, Spacing, Typography } from '@/constants/theme';
 
-// The in-screen header for every drawer-reachable root screen (the 4 tab
-// roots use the hamburger variant to open the drawer; announcements/index
-// and settings use the back-chevron variant, since they're drawer
-// destinations with no tab bar of their own to fall back on — see
-// components/app-drawer-content.tsx and lib/navigation-headers.ts for the
-// pushed-screen equivalent).
+// The in-screen header for every drawer-reachable root screen — all six
+// (the 4 tab roots plus announcements/index and settings) use the hamburger
+// variant to open the drawer, since all six now live inside the (tabs)
+// navigator — see app/(app)/_layout.tsx and app/(app)/(tabs)/_layout.tsx.
+// leftIcon stays overridable for any future screen that genuinely needs a
+// plain back arrow instead. See components/app-drawer-content.tsx and
+// lib/navigation-headers.ts for the pushed-screen equivalent.
 export function ScreenHeader({
   title,
   leftIcon = 'menu-outline',
@@ -62,10 +63,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: Typography.weightSemibold,
     color: Colors.textPrimary,
-    marginLeft: Spacing.sm,
+    textAlign: 'center',
   },
+  // Matches the left icon's footprint (24 icon + 4+4 padding) so the title
+  // is centered against the header's true midpoint, not just the leftover
+  // space next to the icon.
   right: {
-    minWidth: 24,
+    minWidth: 32,
     alignItems: 'flex-end',
   },
 });

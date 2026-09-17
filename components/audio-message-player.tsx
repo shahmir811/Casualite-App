@@ -7,6 +7,7 @@ import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 
 const BAR_COUNT = 40;
 const SPEEDS = [1, 1.5, 2] as const;
+const LOAD_TIMEOUT_MS = 8000;
 
 /**
  * A WhatsApp-style voice-note row for an announcement's audio_url — play/pause
@@ -26,7 +27,23 @@ export function AudioMessagePlayer({ uri }: { uri: string }) {
   const status = useAudioPlayerStatus(player);
   const [barAreaWidth, setBarAreaWidth] = useState(0);
   const [speedIndex, setSpeedIndex] = useState(0);
+  const [loadFailed, setLoadFailed] = useState(false);
   const barHeights = useMemo(() => seededBarHeights(uri, BAR_COUNT), [uri]);
+
+  // expo-audio never surfaces a playback error — an undecodable source (e.g.
+  // a webm/opus file on iOS, which AVFoundation can't play) just leaves
+  // isLoaded false forever, so the play button silently sits disabled with
+  // no indication anything went wrong. This timeout turns that into a
+  // visible "couldn't play" state instead.
+  useEffect(() => {
+    setLoadFailed(false);
+    const timer = setTimeout(() => setLoadFailed(true), LOAD_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [uri]);
+
+  useEffect(() => {
+    if (status.isLoaded) setLoadFailed(false);
+  }, [status.isLoaded]);
 
   const duration = status.duration ?? 0;
   const currentTime = status.currentTime ?? 0;
@@ -61,6 +78,15 @@ export function AudioMessagePlayer({ uri }: { uri: string }) {
     const pct = Math.min(1, Math.max(0, event.nativeEvent.locationX / barAreaWidth));
     player.seekTo(pct * duration);
   };
+
+  if (loadFailed && !status.isLoaded) {
+    return (
+      <View style={styles.errorRow}>
+        <Ionicons name="alert-circle-outline" size={18} color={Colors.error} />
+        <Text style={styles.errorText}>Couldn&apos;t play this voice note</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.row}>
@@ -192,5 +218,19 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weightSemibold,
     color: Colors.textPrimary,
     fontVariant: ['tabular-nums'],
+  },
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    backgroundColor: Colors.errorSoft,
+    borderRadius: Radius.pill,
+    paddingVertical: Spacing.xs + 2,
+    paddingHorizontal: Spacing.sm + 2,
+  },
+  errorText: {
+    fontSize: 12,
+    fontWeight: Typography.weightRegular,
+    color: Colors.error,
   },
 });

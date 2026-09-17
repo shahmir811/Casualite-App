@@ -41,6 +41,12 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => <Ionicons name="wallet-outline" size={size} color={color} />,
         }}
       />
+      {/* Drawer-only destinations, not tab roots — href: null keeps them out
+          of the tab bar row while still nesting them inside this navigator,
+          which is what lets their screens keep the tab bar visible (see
+          app/(app)/_layout.tsx's docblock). */}
+      <Tabs.Screen name="announcements" options={{ href: null }} />
+      <Tabs.Screen name="settings" options={{ href: null }} />
     </Tabs>
   );
 }
