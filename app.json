@@ -6,13 +6,15 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "casualiteapp",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.techmint.casualite",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Staff can attach a photo or video from the camera when posting an announcement.",
+        "NSMicrophoneUsageDescription": "Needed to record audio when taking a video from the camera."
       }
     },
     "android": {

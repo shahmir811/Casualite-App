@@ -176,6 +176,7 @@ export default function HomeScreen() {
           <AnnouncementCard
             announcement={latestAnnouncement}
             onPress={() => router.push(`/announcements/${latestAnnouncement.id}`)}
+            compact
           />
         </View>
       ) : null}

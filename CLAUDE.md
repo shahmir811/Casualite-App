@@ -354,6 +354,31 @@ template regeneration, delete it rather than building around it.
   an ngrok tunnel during development.
 - **Images from CasualOS** come through `Storage::url()`. If `php artisan storage:link`
   hasn't been run on the server, every image 404s and it looks like an app bug.
+- **Installing on a physical iPhone does not require the local Xcode to support that
+  phone's iOS version — use EAS cloud build, not `npx expo run:ios --device`.**
+  `npx expo run:ios --device` builds *and* deploys via the local Xcode's USB debug path,
+  which refuses to run if the phone's iOS is newer than the installed Xcode's max SDK
+  (common on a personal phone enrolled in a public iOS beta). It fails with a misleading
+  `"iOS X.X is not installed. Please download and install the platform from Xcode >
+  Settings > Components"` error — there is nothing to download; that platform doesn't
+  exist for a too-old Xcode. Confirmed 2026-09-17: iPhone on iOS 27.0 vs. Xcode 26.6
+  (max SDK 26.5). The actual fix is to skip local Xcode entirely:
+  1. `eas device:create` — register the iPhone's UDID for ad-hoc distribution (interactive;
+     opens a registration link the phone owner opens in Safari).
+  2. `eas build --profile development --platform ios` — builds in EAS's cloud, not on the
+     Mac, so the local Xcode/SDK version is irrelevant.
+  3. Download the resulting `.ipa` from the build's `applicationArchiveUrl`
+     (`eas build:view <id> --json` if the plain-text view looks stale) and install it
+     straight onto the device over USB:
+     `xcrun devicectl device install app --device <UDID> <path-to-ipa>`.
+  Installing a prebuilt `.ipa` has no SDK-version ceiling — only Xcode's *live* debug-deploy
+  path does. No Xcode 27 beta download needed. `npx expo start --dev-client` afterwards to
+  serve JS; no Xcode involved there either. A separate, unrelated Expo CLI bug can also
+  block the local path even after fixing signing: `resolveDevice.ts`'s device-sort helper
+  (`getBestSimulator.js`) throws instead of returning `null` when the Mac has zero iOS
+  Simulator runtimes installed at all, even though a physical `--device` was requested —
+  irrelevant now that cloud build is the documented path, but worth knowing if `run:ios`
+  is ever revisited.
 
 ---
 
@@ -400,6 +425,11 @@ npm run reset-project       # remove the template's demo screens
   key. `eas.json` already carries production App Store Connect submit credentials
   (`ascApiKeyPath`, `ascAppId`) ahead of that work — configured for `eas submit` once a build
   exists, not a sign that iOS work itself has started.
+- **First iOS device install (2026-09-17):** done. A development-profile EAS cloud build
+  (`eas build --profile development --platform ios`) was installed on a physical iPhone via
+  `xcrun devicectl device install app` — see the new §9 gotcha for the full recipe and why
+  local `npx expo run:ios --device` doesn't work on this Mac. No APNs key generated yet and
+  no push-notification testing done on iOS — that's still open.
 - **Self-signup screen (2026-09-09):** done. `app/(auth)/signup.tsx` calls
   `POST /api/auth/signup`, linked from `app/(auth)/login.tsx`. See §5.
 - **Staff login (2026-09-09):** done. `app/(staff)/index.tsx` (WebView) +
