@@ -4,8 +4,16 @@ import { StyleSheet, View } from 'react-native';
 
 import { Colors, Radius } from '@/constants/theme';
 
-export function DesignPhoto({ url, size = 56 }: { url: string | null; size?: number }) {
-  const dimensionStyle = { width: size, height: size };
+export function DesignPhoto({
+  url,
+  size = 56,
+  height,
+}: {
+  url: string | null;
+  size?: number;
+  height?: number;
+}) {
+  const dimensionStyle = { width: size, height: height ?? size };
 
   if (!url) {
     return (

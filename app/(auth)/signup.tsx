@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -18,23 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { apiClient } from '@/lib/api-client';
 import { useNotification } from '@/lib/notification-context';
-import { SignupResponse } from '@/lib/types';
-
-// Must match the web portal's dropdown exactly — the server 422s on anything
-// outside this list. See ../casualos CLAUDE.md rule 5.34.
-const COUNTRIES = [
-  'Australia',
-  'Bangladesh',
-  'Canada',
-  'Kuwait',
-  'Oman',
-  'Pakistan',
-  'Qatar',
-  'Saudi Arabia',
-  'UAE',
-  'UK',
-  'USA',
-];
+import { CountriesResponse, SignupResponse } from '@/lib/types';
 
 export default function SignupScreen() {
   const router = useRouter();
@@ -49,6 +33,26 @@ export default function SignupScreen() {
   const [countryPickerVisible, setCountryPickerVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Fetched at runtime, not hardcoded — see lib/types.ts's CountriesResponse
+  // comment. Casual Lite adds destination countries over time (e.g. Malaysia,
+  // Norway), and the server 422s on anything outside its own list, so this
+  // screen has to always match whatever the server currently accepts.
+  const [countries, setCountries] = useState<string[]>([]);
+  const [countriesLoading, setCountriesLoading] = useState(true);
+  const [countriesError, setCountriesError] = useState(false);
+
+  const loadCountries = () => {
+    setCountriesLoading(true);
+    setCountriesError(false);
+    apiClient
+      .get<CountriesResponse>('/api/countries')
+      .then((data) => setCountries(data.countries))
+      .catch(() => setCountriesError(true))
+      .finally(() => setCountriesLoading(false));
+  };
+
+  useEffect(loadCountries, []);
 
   const canSubmit =
     name.trim().length > 0 &&
@@ -89,7 +93,10 @@ export default function SignupScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: Spacing.lg + insets.bottom + Spacing.lg }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: Spacing.lg + insets.top, paddingBottom: Spacing.lg + insets.bottom + Spacing.lg },
+        ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>Create your account</Text>
@@ -136,9 +143,12 @@ export default function SignupScreen() {
 
         <View style={styles.field}>
           <Text style={styles.label}>Country</Text>
-          <Pressable style={styles.input} onPress={() => setCountryPickerVisible(true)}>
+          <Pressable
+            style={styles.input}
+            disabled={countriesLoading}
+            onPress={() => setCountryPickerVisible(true)}>
             <Text style={country ? styles.pickerValue : styles.pickerPlaceholder}>
-              {country || 'Select your country'}
+              {countriesLoading ? 'Loading countries…' : country || 'Select your country'}
             </Text>
           </Pressable>
         </View>
@@ -194,22 +204,33 @@ export default function SignupScreen() {
         transparent
         onRequestClose={() => setCountryPickerVisible(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setCountryPickerVisible(false)}>
-          <Pressable style={styles.modalSheet} onPress={() => {}}>
+          <Pressable
+            style={[styles.modalSheet, { paddingBottom: Spacing.lg + insets.bottom }]}
+            onPress={() => {}}>
             <Text style={styles.modalTitle}>Select Country</Text>
-            <FlatList
-              data={COUNTRIES}
-              keyExtractor={(item) => item}
-              renderItem={({ item }) => (
-                <Pressable
-                  style={({ pressed }) => [styles.countryRow, pressed && styles.countryRowPressed]}
-                  onPress={() => {
-                    setCountry(item);
-                    setCountryPickerVisible(false);
-                  }}>
-                  <Text style={styles.countryRowText}>{item}</Text>
+            {countriesError ? (
+              <View style={styles.countryFallback}>
+                <Text style={styles.countryFallbackText}>Could not load the country list.</Text>
+                <Pressable onPress={loadCountries}>
+                  <Text style={styles.countryFallbackRetry}>Try Again</Text>
                 </Pressable>
-              )}
-            />
+              </View>
+            ) : (
+              <FlatList
+                data={countries}
+                keyExtractor={(item) => item}
+                renderItem={({ item }) => (
+                  <Pressable
+                    style={({ pressed }) => [styles.countryRow, pressed && styles.countryRowPressed]}
+                    onPress={() => {
+                      setCountry(item);
+                      setCountryPickerVisible(false);
+                    }}>
+                    <Text style={styles.countryRowText}>{item}</Text>
+                  </Pressable>
+                )}
+              />
+            )}
           </Pressable>
         </Pressable>
       </Modal>
@@ -316,7 +337,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: Radius.card,
     maxHeight: '60%',
     paddingTop: Spacing.md,
-    paddingBottom: Spacing.lg,
   },
   modalTitle: {
     fontSize: 15,
@@ -341,5 +361,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: Typography.weightRegular,
     color: Colors.textPrimary,
+  },
+  countryFallback: {
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.lg,
+  },
+  countryFallbackText: {
+    fontSize: 14,
+    fontWeight: Typography.weightRegular,
+    color: Colors.textSecondary,
+  },
+  countryFallbackRetry: {
+    fontSize: 14,
+    fontWeight: Typography.weightSemibold,
+    color: Colors.accent,
   },
 });

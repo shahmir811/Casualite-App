@@ -205,11 +205,13 @@ requests send `Authorization: Bearer <token>` and `Accept: application/json`.
 |---|---|---|
 | POST | `/api/auth/verify` | portal_token (bare or full URL) + email → token |
 | POST | `/api/auth/signup` | name/contact_number/city/country/address/email → queues a review request (public, no bearer token) |
+| GET | `/api/countries` | Destination countries accepted by signup's country picker — server is the source of truth, see §5 |
 | POST | `/api/auth/logout` | Revoke current token |
 | GET | `/api/me` | Profile, balance, advance credit |
 | GET | `/api/catalogues` | Open catalogues with covers |
 | GET | `/api/catalogues/{id}` | Designs, photos, pricing |
 | POST | `/api/catalogues/{id}/quote` | Price a prospective order without writing it — calls `OrderPlacementService::quote()` |
+| GET | `/api/catalogues/{id}/book` | Fresh 10-min presigned S3 URL for the catalogue's lookbook PDF, `{ url }`. 404 if none uploaded — check `has_catalogue_book` on the catalogue first. Fetch on tap, never cache. |
 | POST | `/api/orders` | Place order (collective quantity model) |
 | GET | `/api/orders` | Order history with status |
 | GET | `/api/orders/{id}` | Full breakdown, activity, dispatch |
@@ -315,7 +317,12 @@ lib/ or services/    API client, secure storage, formatters
   Components inside are PascalCase.
 - **Route groups** use parentheses: `app/(auth)/login.tsx` — the folder name doesn't appear
   in the URL. There are three: `(auth)` (signed-out), `(app)` (signed-in customer), and
-  `(staff)` (signed-in staff — a single WebView screen, see §5).
+  `(staff)` (signed-in staff — a single WebView screen, see §5). `(auth)` lands on
+  `app/(auth)/index.tsx` first, not `login.tsx` directly — a three-card destination selector
+  (Team / Wholesale Partners / casualite.co), see §11. Team and Wholesale both push into
+  `login.tsx`; casualite.co leaves the app via `Linking.openURL('https://casualite.co')`.
+  Sign-out routes back to this selector too, since it's simply wherever "unauthenticated"
+  resolves to in `app/_layout.tsx`'s auth gate.
 - **Styling is `StyleSheet.create`**, defined at the bottom of the file. No inline style
   objects in JSX except for genuinely dynamic values. There is no Tailwind here.
 - **Every string shown to a customer** should read as the portal reads — plain, calm, no
@@ -347,6 +354,31 @@ template regeneration, delete it rather than building around it.
   an ngrok tunnel during development.
 - **Images from CasualOS** come through `Storage::url()`. If `php artisan storage:link`
   hasn't been run on the server, every image 404s and it looks like an app bug.
+- **Installing on a physical iPhone does not require the local Xcode to support that
+  phone's iOS version — use EAS cloud build, not `npx expo run:ios --device`.**
+  `npx expo run:ios --device` builds *and* deploys via the local Xcode's USB debug path,
+  which refuses to run if the phone's iOS is newer than the installed Xcode's max SDK
+  (common on a personal phone enrolled in a public iOS beta). It fails with a misleading
+  `"iOS X.X is not installed. Please download and install the platform from Xcode >
+  Settings > Components"` error — there is nothing to download; that platform doesn't
+  exist for a too-old Xcode. Confirmed 2026-09-17: iPhone on iOS 27.0 vs. Xcode 26.6
+  (max SDK 26.5). The actual fix is to skip local Xcode entirely:
+  1. `eas device:create` — register the iPhone's UDID for ad-hoc distribution (interactive;
+     opens a registration link the phone owner opens in Safari).
+  2. `eas build --profile development --platform ios` — builds in EAS's cloud, not on the
+     Mac, so the local Xcode/SDK version is irrelevant.
+  3. Download the resulting `.ipa` from the build's `applicationArchiveUrl`
+     (`eas build:view <id> --json` if the plain-text view looks stale) and install it
+     straight onto the device over USB:
+     `xcrun devicectl device install app --device <UDID> <path-to-ipa>`.
+  Installing a prebuilt `.ipa` has no SDK-version ceiling — only Xcode's *live* debug-deploy
+  path does. No Xcode 27 beta download needed. `npx expo start --dev-client` afterwards to
+  serve JS; no Xcode involved there either. A separate, unrelated Expo CLI bug can also
+  block the local path even after fixing signing: `resolveDevice.ts`'s device-sort helper
+  (`getBestSimulator.js`) throws instead of returning `null` when the Mac has zero iOS
+  Simulator runtimes installed at all, even though a physical `--device` was requested —
+  irrelevant now that cloud build is the documented path, but worth knowing if `run:ios`
+  is ever revisited.
 
 ---
 
@@ -390,7 +422,14 @@ npm run reset-project       # remove the template's demo screens
   device testing done. The SDK 54 → current bump has not started either. Next concrete steps
   are §4.0/§4.1 in `../Mobile-App-Development-Plan.md` — iOS development build via
   `eas build --profile development --platform ios`, then generating and uploading the APNs
-  key.
+  key. `eas.json` already carries production App Store Connect submit credentials
+  (`ascApiKeyPath`, `ascAppId`) ahead of that work — configured for `eas submit` once a build
+  exists, not a sign that iOS work itself has started.
+- **First iOS device install (2026-09-17):** done. A development-profile EAS cloud build
+  (`eas build --profile development --platform ios`) was installed on a physical iPhone via
+  `xcrun devicectl device install app` — see the new §9 gotcha for the full recipe and why
+  local `npx expo run:ios --device` doesn't work on this Mac. No APNs key generated yet and
+  no push-notification testing done on iOS — that's still open.
 - **Self-signup screen (2026-09-09):** done. `app/(auth)/signup.tsx` calls
   `POST /api/auth/signup`, linked from `app/(auth)/login.tsx`. See §5.
 - **Staff login (2026-09-09):** done. `app/(staff)/index.tsx` (WebView) +
@@ -398,6 +437,52 @@ npm run reset-project       # remove the template's demo screens
 - **Reusable notification system (2026-09-09):** done. `lib/notification-context.tsx` +
   `components/notification-modal.tsx` replace every `Alert.alert` call app-wide; mounted
   once in `app/_layout.tsx` so it survives navigation. See §8.
+- **Catalog book (lookbook PDF) viewing (2026-09-10):** done. "View Catalog Book" button on
+  `app/(app)/(tabs)/catalogues/[id].tsx`, shown when `has_catalogue_book` is true, fetches
+  `GET /api/catalogues/{id}/book` on tap and opens the presigned URL with
+  `WebBrowser.openBrowserAsync` (Android Custom Tabs / iOS SFSafariViewController).
+  A native in-app viewer (`react-native-pdf` + `react-native-blob-util`, self-managed
+  download with retry, local `file://` rendering) was built and shipped to a real Android
+  device first, but a "Download interrupted" error proved unfixable: it reproduced 100% of
+  the time regardless of network (cellular with a 50MB+ file, then WiFi with no SIM at all),
+  and a direct browser download of the exact same presigned URL on the same device completed
+  fine — proving the URL/S3/network layer was never the problem and the bug was inside
+  `react-native-blob-util`'s Android download/completion-detection path itself
+  (`isDownloadComplete()` in `ReactNativeBlobUtilFileResp.java`). A theory that OkHttp's
+  transparent gzip handling was stripping `Content-Length` and triggering a chunked-download
+  detection bug was tested (`Accept-Encoding: identity`) and ruled out — it didn't change the
+  failure. Diagnosing further needed a live adb logcat capture (no USB access to the test
+  device at the time), so the native viewer was reverted in favor of the simpler, already-
+  working `WebBrowser.openBrowserAsync` approach: it downloads fully before displaying either
+  way (catalog books run up to ~200MB) and Android Chrome downloads rather than previews the
+  PDF inline, but it's reliable, which the native path wasn't. `react-native-pdf`,
+  `react-native-blob-util`, and their config plugins have been removed from the project.
+  If in-app preview is revisited, get a live adb logcat capture on a real failing device
+  before attempting another fix — every prior round guessing from a paraphrased error
+  description produced a wrong or incomplete fix; every round with the literal error text
+  (or, here, definitive proof via comparison) moved the diagnosis forward. See §6.
+- **Home redesign — promotional carousel + balance banner (2026-09-11):** done.
+  `components/home-hero.tsx` cycles the most recent open catalogues (cover photo, name, a
+  "New" eyebrow on the newest) with a CTA into Catalogues; the account balance on Home moved
+  from its old presentation to a banner layout. Built entirely from existing `Colors`/
+  `Radius`/`Spacing`/`Typography` tokens — no new palette introduced. Signup's country picker
+  was switched the same day from a hardcoded list to `GET /api/countries`, see §6.
+- **Global `AnnouncementsProvider` (2026-09-12):** done. `lib/announcements-context.tsx`
+  synchronizes the unread-announcement count app-wide, so the Home badge and the
+  announcement list agree without a manual refetch on navigation.
+- **Voice notes in announcements (2026-09-13):** done. `components/audio-message-player.tsx`
+  (built on `expo-audio`) renders a WhatsApp-style play/pause row on
+  `app/(app)/announcements/[id].tsx` whenever `announcement.has_audio` is true — playback
+  only, no recording in this app. No new endpoint: `audio_url`/`has_audio` ride on the
+  existing `GET /api/announcements` payload.
+- **Pre-login destination selector (2026-09-15):** done. `app/(auth)/index.tsx` is now the
+  `(auth)` group's landing screen (see §8) — three cards (Team, Wholesale Partners,
+  casualite.co) matching a design the Casualite owner supplied, shown only to signed-out
+  users. `login.tsx` gained a `DetailBackButton` (`components/detail-back-button.tsx`) back
+  to it.
+- **Pending cleanup:** `plugins/withAdiRegistration.js` writes a one-time Google Play
+  ownership-verification file into the Android build. Remove it and its `app.json` plugin
+  entry once the key shows verified in Play Console — not yet confirmed as of this writing.
 
 **Sign-out revokes the token.** `POST /api/auth/logout` (Sanctum-guarded) exists on the
 Laravel side and deletes only the token used for that request — other devices stay signed

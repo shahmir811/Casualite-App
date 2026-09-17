@@ -205,11 +205,13 @@ requests send `Authorization: Bearer <token>` and `Accept: application/json`.
 |---|---|---|
 | POST | `/api/auth/verify` | portal_token (bare or full URL) + email → token |
 | POST | `/api/auth/signup` | name/contact_number/city/country/address/email → queues a review request (public, no bearer token) |
+| GET | `/api/countries` | Destination countries accepted by signup's country picker — server is the source of truth, see §5 |
 | POST | `/api/auth/logout` | Revoke current token |
 | GET | `/api/me` | Profile, balance, advance credit |
 | GET | `/api/catalogues` | Open catalogues with covers |
 | GET | `/api/catalogues/{id}` | Designs, photos, pricing |
 | POST | `/api/catalogues/{id}/quote` | Price a prospective order without writing it — calls `OrderPlacementService::quote()` |
+| GET | `/api/catalogues/{id}/book` | Fresh 10-min presigned S3 URL for the catalogue's lookbook PDF, `{ url }`. 404 if none uploaded — check `has_catalogue_book` on the catalogue first. Fetch on tap, never cache. |
 | POST | `/api/orders` | Place order (collective quantity model) |
 | GET | `/api/orders` | Order history with status |
 | GET | `/api/orders/{id}` | Full breakdown, activity, dispatch |
@@ -315,7 +317,12 @@ lib/ or services/    API client, secure storage, formatters
   Components inside are PascalCase.
 - **Route groups** use parentheses: `app/(auth)/login.tsx` — the folder name doesn't appear
   in the URL. There are three: `(auth)` (signed-out), `(app)` (signed-in customer), and
-  `(staff)` (signed-in staff — a single WebView screen, see §5).
+  `(staff)` (signed-in staff — a single WebView screen, see §5). `(auth)` lands on
+  `app/(auth)/index.tsx` first, not `login.tsx` directly — a three-card destination selector
+  (Team / Wholesale Partners / casualite.co), see §11. Team and Wholesale both push into
+  `login.tsx`; casualite.co leaves the app via `Linking.openURL('https://casualite.co')`.
+  Sign-out routes back to this selector too, since it's simply wherever "unauthenticated"
+  resolves to in `app/_layout.tsx`'s auth gate.
 - **Styling is `StyleSheet.create`**, defined at the bottom of the file. No inline style
   objects in JSX except for genuinely dynamic values. There is no Tailwind here.
 - **Every string shown to a customer** should read as the portal reads — plain, calm, no
@@ -390,7 +397,9 @@ npm run reset-project       # remove the template's demo screens
   device testing done. The SDK 54 → current bump has not started either. Next concrete steps
   are §4.0/§4.1 in `../Mobile-App-Development-Plan.md` — iOS development build via
   `eas build --profile development --platform ios`, then generating and uploading the APNs
-  key.
+  key. `eas.json` already carries production App Store Connect submit credentials
+  (`ascApiKeyPath`, `ascAppId`) ahead of that work — configured for `eas submit` once a build
+  exists, not a sign that iOS work itself has started.
 - **Self-signup screen (2026-09-09):** done. `app/(auth)/signup.tsx` calls
   `POST /api/auth/signup`, linked from `app/(auth)/login.tsx`. See §5.
 - **Staff login (2026-09-09):** done. `app/(staff)/index.tsx` (WebView) +
@@ -398,6 +407,52 @@ npm run reset-project       # remove the template's demo screens
 - **Reusable notification system (2026-09-09):** done. `lib/notification-context.tsx` +
   `components/notification-modal.tsx` replace every `Alert.alert` call app-wide; mounted
   once in `app/_layout.tsx` so it survives navigation. See §8.
+- **Catalog book (lookbook PDF) viewing (2026-09-10):** done. "View Catalog Book" button on
+  `app/(app)/(tabs)/catalogues/[id].tsx`, shown when `has_catalogue_book` is true, fetches
+  `GET /api/catalogues/{id}/book` on tap and opens the presigned URL with
+  `WebBrowser.openBrowserAsync` (Android Custom Tabs / iOS SFSafariViewController).
+  A native in-app viewer (`react-native-pdf` + `react-native-blob-util`, self-managed
+  download with retry, local `file://` rendering) was built and shipped to a real Android
+  device first, but a "Download interrupted" error proved unfixable: it reproduced 100% of
+  the time regardless of network (cellular with a 50MB+ file, then WiFi with no SIM at all),
+  and a direct browser download of the exact same presigned URL on the same device completed
+  fine — proving the URL/S3/network layer was never the problem and the bug was inside
+  `react-native-blob-util`'s Android download/completion-detection path itself
+  (`isDownloadComplete()` in `ReactNativeBlobUtilFileResp.java`). A theory that OkHttp's
+  transparent gzip handling was stripping `Content-Length` and triggering a chunked-download
+  detection bug was tested (`Accept-Encoding: identity`) and ruled out — it didn't change the
+  failure. Diagnosing further needed a live adb logcat capture (no USB access to the test
+  device at the time), so the native viewer was reverted in favor of the simpler, already-
+  working `WebBrowser.openBrowserAsync` approach: it downloads fully before displaying either
+  way (catalog books run up to ~200MB) and Android Chrome downloads rather than previews the
+  PDF inline, but it's reliable, which the native path wasn't. `react-native-pdf`,
+  `react-native-blob-util`, and their config plugins have been removed from the project.
+  If in-app preview is revisited, get a live adb logcat capture on a real failing device
+  before attempting another fix — every prior round guessing from a paraphrased error
+  description produced a wrong or incomplete fix; every round with the literal error text
+  (or, here, definitive proof via comparison) moved the diagnosis forward. See §6.
+- **Home redesign — promotional carousel + balance banner (2026-09-11):** done.
+  `components/home-hero.tsx` cycles the most recent open catalogues (cover photo, name, a
+  "New" eyebrow on the newest) with a CTA into Catalogues; the account balance on Home moved
+  from its old presentation to a banner layout. Built entirely from existing `Colors`/
+  `Radius`/`Spacing`/`Typography` tokens — no new palette introduced. Signup's country picker
+  was switched the same day from a hardcoded list to `GET /api/countries`, see §6.
+- **Global `AnnouncementsProvider` (2026-09-12):** done. `lib/announcements-context.tsx`
+  synchronizes the unread-announcement count app-wide, so the Home badge and the
+  announcement list agree without a manual refetch on navigation.
+- **Voice notes in announcements (2026-09-13):** done. `components/audio-message-player.tsx`
+  (built on `expo-audio`) renders a WhatsApp-style play/pause row on
+  `app/(app)/announcements/[id].tsx` whenever `announcement.has_audio` is true — playback
+  only, no recording in this app. No new endpoint: `audio_url`/`has_audio` ride on the
+  existing `GET /api/announcements` payload.
+- **Pre-login destination selector (2026-09-15):** done. `app/(auth)/index.tsx` is now the
+  `(auth)` group's landing screen (see §8) — three cards (Team, Wholesale Partners,
+  casualite.co) matching a design the Casualite owner supplied, shown only to signed-out
+  users. `login.tsx` gained a `DetailBackButton` (`components/detail-back-button.tsx`) back
+  to it.
+- **Pending cleanup:** `plugins/withAdiRegistration.js` writes a one-time Google Play
+  ownership-verification file into the Android build. Remove it and its `app.json` plugin
+  entry once the key shows verified in Play Console — not yet confirmed as of this writing.
 
 **Sign-out revokes the token.** `POST /api/auth/logout` (Sanctum-guarded) exists on the
 Laravel side and deletes only the token used for that request — other devices stay signed
