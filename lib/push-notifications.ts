@@ -8,17 +8,15 @@ import { apiClient } from '@/lib/api-client';
 // app is in the foreground unless a handler opts in explicitly. Set once at
 // module load, which runs before anything else touches this file.
 //
-// shouldSetBadge stays false: the app icon badge is driven by setBadgeCount
-// below, computed from the actual number of unread announcements, not from
-// the OS's per-notification default (which only knows how to increment a
-// counter and would drift out of sync the moment something is marked read
-// elsewhere in the app).
+// Accept the server's absolute unread count on arrival. In the background,
+// iOS applies the push payload's badge itself without running this handler.
+// The fetched announcement count reconciles it when the app is opened.
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
     shouldShowList: true,
     shouldPlaySound: true,
-    shouldSetBadge: false,
+    shouldSetBadge: true,
   }),
 });
 
@@ -37,6 +35,32 @@ export async function setBadgeCount(count: number): Promise<void> {
 // Tracked so logout can unregister the exact token this device last
 // registered, without re-deriving it.
 let currentPushToken: string | null = null;
+
+// Development-only evidence for iOS alerts that arrive silently. Never log
+// tokens, message text, or customer data.
+async function logIosNotificationDiagnostics(
+  permissions: Notifications.NotificationPermissionsStatus
+): Promise<void> {
+  if (!__DEV__ || Platform.OS !== 'ios') return;
+
+  try {
+    const presented = await Notifications.getPresentedNotificationsAsync();
+    console.info('[push] iOS notification diagnostics', JSON.stringify({
+      authorizationStatus: permissions.ios?.status,
+      allowsSound: permissions.ios?.allowsSound,
+      allowsBadge: permissions.ios?.allowsBadge,
+      notifications: presented.slice(-3).map(({ request }) => ({
+        sound: request.content.sound,
+        badge: request.content.badge,
+        interruptionLevel: 'interruptionLevel' in request.content
+          ? request.content.interruptionLevel
+          : undefined,
+      })),
+    }));
+  } catch (err) {
+    console.warn('[push] Could not inspect iOS notification settings', err);
+  }
+}
 
 function getProjectId(): string | undefined {
   return Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
@@ -88,7 +112,9 @@ export async function requestPushPermissionAndRegister(): Promise<void> {
 export async function syncPushTokenIfGranted(): Promise<void> {
   if (Platform.OS === 'web') return;
 
-  const { status } = await Notifications.getPermissionsAsync();
+  const permissions = await Notifications.getPermissionsAsync();
+  void logIosNotificationDiagnostics(permissions);
+  const { status } = permissions;
   if (status !== 'granted') return;
 
   await fetchAndRegisterToken();

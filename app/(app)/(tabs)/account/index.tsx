@@ -1,5 +1,7 @@
+import { DrawerActions, useNavigation } from '@react-navigation/native';
 import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
+import { ScreenHeader } from '@/components/screen-header';
 import { LedgerRowSkeleton, Skeleton } from '@/components/skeleton';
 import { EmptyView, ErrorView } from '@/components/state-views';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
@@ -9,47 +11,75 @@ import { useApiQuery } from '@/lib/use-api-query';
 
 type LedgerResponse = {
   advance_credit_balance: string;
+  outstanding_balance: string;
   ledger: LedgerEntry[];
 };
 
-export default function LedgerScreen() {
+export default function AccountScreen() {
+  const navigation = useNavigation();
   const { state, refreshing, refetch, onRefresh } = useApiQuery<LedgerResponse>('/api/ledger');
+
+  const header = (
+    <ScreenHeader title="Account & Ledger" onLeftPress={() => navigation.dispatch(DrawerActions.openDrawer())} />
+  );
 
   if (state.status === 'loading') {
     return (
-      <View style={styles.list}>
-        <Skeleton width="100%" height={92} radius={Radius.card} style={{ marginBottom: Spacing.sm }} />
-        {Array.from({ length: 6 }).map((_, index) => (
-          <LedgerRowSkeleton key={index} />
-        ))}
+      <View style={styles.container}>
+        {header}
+        <View style={styles.list}>
+          <Skeleton width="100%" height={92} radius={Radius.card} style={{ marginBottom: Spacing.sm }} />
+          {Array.from({ length: 6 }).map((_, index) => (
+            <LedgerRowSkeleton key={index} />
+          ))}
+        </View>
       </View>
     );
   }
 
   if (state.status === 'error') {
-    return <ErrorView message={state.error.message} onRetry={refetch} />;
+    return (
+      <View style={styles.container}>
+        {header}
+        <ErrorView message={state.error.message} onRetry={refetch} />
+      </View>
+    );
   }
 
-  const { advance_credit_balance, ledger } = state.data;
+  const { outstanding_balance, ledger } = state.data;
 
   return (
-    <FlatList
-      data={ledger}
-      keyExtractor={(item) => String(item.id)}
-      renderItem={({ item }) => <LedgerRow entry={item} />}
-      ListHeaderComponent={<AdvanceBalanceCard balance={advance_credit_balance} />}
-      ListEmptyComponent={<EmptyView icon="wallet-outline" message="No transactions yet." />}
-      contentContainerStyle={styles.list}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
-    />
+    <View style={styles.container}>
+      {header}
+      <FlatList
+        data={ledger}
+        keyExtractor={(item) => String(item.id)}
+        renderItem={({ item }) => <LedgerRow entry={item} />}
+        ListHeaderComponent={<OutstandingBalanceCard balance={outstanding_balance} />}
+        ListEmptyComponent={<EmptyView icon="wallet-outline" message="No transactions yet." />}
+        contentContainerStyle={styles.list}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
+      />
+    </View>
   );
 }
 
-function AdvanceBalanceCard({ balance }: { balance: string }) {
+function OutstandingBalanceCard({ balance }: { balance: string }) {
+  // Mirrors the web ledger's sign convention (CLAUDE.md Section 7): positive =
+  // customer owes Casualite (Debit), negative = customer is in credit.
+  const amount = parseFloat(balance);
+  const isDebit = amount > 0;
+  const isSettled = amount === 0;
+
   return (
     <View style={styles.balanceCard}>
-      <Text style={styles.balanceLabel}>Advance Credit Balance</Text>
-      <Text style={styles.balanceValue}>{formatCurrency(balance)}</Text>
+      <Text style={styles.balanceLabel}>Outstanding Balance</Text>
+      <Text style={styles.balanceValue}>{formatCurrency(Math.abs(amount))}</Text>
+      {!isSettled && (
+        <Text style={[styles.balanceTag, { color: isDebit ? Colors.error : Colors.success }]}>
+          {isDebit ? 'You owe this amount' : 'In your favor'}
+        </Text>
+      )}
     </View>
   );
 }
@@ -76,6 +106,10 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
   list: {
     padding: Spacing.md,
   },
@@ -99,6 +133,10 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: Typography.weightBold,
     color: '#FFFFFF',
+  },
+  balanceTag: {
+    fontSize: 13,
+    fontWeight: Typography.weightSemibold,
   },
   row: {
     flexDirection: 'row',

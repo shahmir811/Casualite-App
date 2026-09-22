@@ -23,7 +23,9 @@ export const Colors = {
   highlightSoft: '#E7E4DD',
   brandBlack: '#0B0B0C',
   success: '#30D158',
+  successSoft: '#DCFCE7',
   error: '#FF3B30',
+  errorSoft: '#FEE2E2',
 };
 
 // Order status chips — not used until the Ordering slice exists, but kept

@@ -1,17 +1,31 @@
+import { Image } from 'expo-image';
 import { ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Colors, Spacing, Typography } from '@/constants/theme';
+import { Colors, Spacing } from '@/constants/theme';
 
-// The black band + tracked wordmark from the brand's own logo card
-// (casualite-logo.png / the owner's black-card social treatment) — a
-// contained, full-bleed quote of that mark, not a dark theme. Everything
-// below it stays on the light background per constants/theme.ts.
-export function BrandMasthead({ right }: { right?: ReactNode }) {
+const LOGO_ASPECT_RATIO = 900 / 632;
+
+// The black band + the brand's own logo mark (casualite-logo.png), tinted
+// white for this dark band — a contained, full-bleed quote of the mark the
+// owner already uses on black-card social posts, not a dark theme. The
+// source PNG is black-on-transparent, so tintColor recolors it cleanly.
+// Everything below the band stays on the light background per constants/theme.ts.
+export function BrandMasthead({ left, right }: { left?: ReactNode; right?: ReactNode }) {
+  const insets = useSafeAreaInsets();
+
   return (
-    <View style={styles.band}>
-      <View style={styles.side} />
-      <Text style={styles.wordmark}>CASUALITE</Text>
+    <View style={[styles.band, { paddingTop: insets.top + Spacing.sm }]}>
+      <View style={styles.side}>{left}</View>
+      <View style={styles.logoWrap}>
+        <Image
+          source={require('@/assets/images/casualite-logo.png')}
+          style={styles.logo}
+          contentFit="contain"
+          tintColor="#FFFFFF"
+        />
+      </View>
       <View style={[styles.side, styles.sideRight]}>{right}</View>
     </View>
   );
@@ -22,7 +36,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.brandBlack,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: Spacing.lg,
+    paddingBottom: Spacing.lg,
     paddingHorizontal: Spacing.lg,
   },
   side: {
@@ -31,12 +45,13 @@ const styles = StyleSheet.create({
   sideRight: {
     alignItems: 'flex-end',
   },
-  wordmark: {
+  logoWrap: {
     flex: 2,
-    textAlign: 'center',
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: Typography.weightSemibold,
-    letterSpacing: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logo: {
+    height: 30,
+    aspectRatio: LOGO_ASPECT_RATIO,
   },
 });
