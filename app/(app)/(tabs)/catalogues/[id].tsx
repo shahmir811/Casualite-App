@@ -16,6 +16,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DesignGalleryViewer } from '@/components/design-gallery-viewer';
@@ -267,15 +268,17 @@ export default function CatalogueDetailScreen() {
           animationType="slide"
           presentationStyle="pageSheet"
           onRequestClose={() => setSizeChartVisible(false)}>
-          <View style={styles.container}>
-            <View style={[styles.sizeChartModalHeader, { paddingTop: insets.top + Spacing.sm }]}>
-              <Text style={styles.sizeChartModalTitle}>Size Chart</Text>
-              <Pressable hitSlop={12} onPress={() => setSizeChartVisible(false)} accessibilityLabel="Close">
-                <Ionicons name="close" size={24} color={Colors.textPrimary} />
-              </Pressable>
-            </View>
-            <SizeChartContent />
-          </View>
+          {sizeChartVisible ? (
+            <GestureHandlerRootView style={styles.container}>
+              <View style={[styles.sizeChartModalHeader, { paddingTop: insets.top + Spacing.sm }]}>
+                <Text style={styles.sizeChartModalTitle}>Size Chart</Text>
+                <Pressable hitSlop={12} onPress={() => setSizeChartVisible(false)} accessibilityLabel="Close">
+                  <Ionicons name="close" size={24} color={Colors.textPrimary} />
+                </Pressable>
+              </View>
+              <SizeChartContent />
+            </GestureHandlerRootView>
+          ) : null}
         </Modal>
 
         <View style={styles.section}>
