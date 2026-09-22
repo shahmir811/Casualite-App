@@ -1,4 +1,10 @@
+import { Platform } from 'react-native';
+
 const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
+
+// Sent on login (`platform` field) and on every request (`X-App-Platform`
+// header) so CasualiteOS can track which platform a customer is using.
+export const APP_PLATFORM: 'ios' | 'android' = Platform.OS === 'ios' ? 'ios' : 'android';
 
 export class ApiError extends Error {
   status: number;
@@ -34,6 +40,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
   const headers: Record<string, string> = {
     Accept: 'application/json',
+    'X-App-Platform': APP_PLATFORM,
   };
   if (options.body !== undefined) headers['Content-Type'] = 'application/json';
   if (authToken) headers.Authorization = `Bearer ${authToken}`;

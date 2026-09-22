@@ -1,7 +1,7 @@
 import CookieManager from '@preeternal/react-native-cookie-manager';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 
-import { apiClient, ApiError, setAuthToken } from '@/lib/api-client';
+import { APP_PLATFORM, apiClient, ApiError, setAuthToken } from '@/lib/api-client';
 import {
   requestPushPermissionAndRegister,
   setBadgeCount,
@@ -65,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = await apiClient.post<VerifyResponse>('/api/auth/verify', {
       portal_token: portalToken,
       email,
+      platform: APP_PLATFORM,
     });
 
     if (data.account_type === 'staff') {

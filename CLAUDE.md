@@ -202,7 +202,7 @@ requests send `Authorization: Bearer <token>` and `Accept: application/json`.
 
 | Method | Route | Purpose |
 |---|---|---|
-| POST | `/api/auth/verify` | portal_token (bare or full URL) + email → token |
+| POST | `/api/auth/verify` | portal_token (bare or full URL) + email + platform (`ios`/`android`) → token |
 | POST | `/api/auth/signup` | name/contact_number/city/country/address/email → queues a review request (public, no bearer token) |
 | GET | `/api/countries` | Destination countries accepted by signup's country picker — server is the source of truth, see §5 |
 | POST | `/api/auth/logout` | Revoke current token |
@@ -224,6 +224,13 @@ requests send `Authorization: Bearer <token>` and `Accept: application/json`.
 Note: earlier drafts of this doc called the last two `/api/devices` — the shipped Laravel
 route and the RN client (`lib/push-notifications.ts`) both use `/api/push-tokens`. Use that
 name.
+
+Every authenticated request also carries an `X-App-Platform: ios|android` header, set once
+as a default header on the API client (`APP_PLATFORM` constant in `lib/api-client.ts`) —
+not attached per-call. Combined with `platform` on `/api/auth/verify`, this is how
+CasualiteOS's admin-only "using the app" indicator on the Customer show page knows which
+platform a customer is on and keeps "last seen" fresh on every authenticated call, since
+Sanctum tokens here are long-lived and a customer may only ever call `verify` once. See §11.
 
 Staff accounts authenticate through the same `POST /api/auth/verify` row above but never
 receive a bearer token — they get a `redirect_url` instead, and everything past that point
@@ -491,6 +498,14 @@ npm run reset-project       # remove the template's demo screens
   `react-native-gesture-handler` + `react-native-reanimated` — both already linked for the
   drawer nav's `GestureHandlerRootView` (`app/_layout.tsx`), so no new native dependency or
   EAS build was needed.
+- **App-platform tracking (2026-09-22):** done. CasualiteOS's Customer show page now shows
+  whether a customer is using the app and which platform, admin-only. `POST /api/auth/verify`
+  sends a new `platform: 'ios' | 'android'` field (from `Platform.OS`), and every
+  authenticated request carries a matching `X-App-Platform` header — both driven by a single
+  `APP_PLATFORM` constant in `lib/api-client.ts`, set as a default header rather than
+  attached per call. This lets the backend refresh "last seen" on any authenticated request,
+  not only at login, since Sanctum tokens here never expire. No new screens or endpoints on
+  this side. See §6.
 - **Pending cleanup:** `plugins/withAdiRegistration.js` writes a one-time Google Play
   ownership-verification file into the Android build. Remove it and its `app.json` plugin
   entry once the key shows verified in Play Console — not yet confirmed as of this writing.
