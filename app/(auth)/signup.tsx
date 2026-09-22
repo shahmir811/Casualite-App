@@ -35,7 +35,7 @@ export default function SignupScreen() {
   const [submitting, setSubmitting] = useState(false);
 
   // Fetched at runtime, not hardcoded — see lib/types.ts's CountriesResponse
-  // comment. Casual Lite adds destination countries over time (e.g. Malaysia,
+  // comment. Casualite adds destination countries over time (e.g. Malaysia,
   // Norway), and the server 422s on anything outside its own list, so this
   // screen has to always match whatever the server currently accepts.
   const [countries, setCountries] = useState<string[]>([]);
@@ -101,7 +101,7 @@ export default function SignupScreen() {
         showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>Create your account</Text>
         <Text style={styles.subtitle}>
-          Tell us a bit about yourself. Casual Lite will review your details and send you your
+          Tell us a bit about yourself. Casualite will review your details and send you your
           portal link once approved.
         </Text>
 

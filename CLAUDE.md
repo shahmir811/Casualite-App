@@ -29,8 +29,7 @@ Six things that cause real damage if broken. Everything else in this file is det
 
 ## 1. What this project is
 
-A customer-facing iOS and Android app for **Casualite** (also written "Casual Lite"), a
-Pakistani clothing brand. Built by **The Techmint Ltd** (UK, company no. 16834286).
+A customer-facing iOS and Android app for **Casualite**, a Pakistani clothing brand. Built by **The Techmint Ltd** (UK, company no. 16834286).
 
 It sits on top of **CasualOS**, the Laravel business operations system already delivered to
 the same client. CasualOS lives in the sibling folder `../casualos/` and its own `CLAUDE.md`
@@ -220,6 +219,7 @@ requests send `Authorization: Bearer <token>` and `Accept: application/json`.
 | POST | `/api/announcements/{id}/read` | Mark one announcement read |
 | POST | `/api/push-tokens` | Register Expo push token |
 | DELETE | `/api/push-tokens` | Deregister on sign-out |
+| GET | `/api/size-chart` | Fresh 10-min presigned S3 URL for the singleton size-chart image, `{ url }`. 404 with `reason: not_uploaded` if the admin hasn't uploaded one yet — unlike the catalogue book, there is no upfront flag; the app always shows the entry point and renders an empty state on a 404. Fetch on tap, never cache. |
 
 Note: earlier drafts of this doc called the last two `/api/devices` — the shipped Laravel
 route and the RN client (`lib/push-notifications.ts`) both use `/api/push-tokens`. Use that
@@ -417,19 +417,16 @@ npm run reset-project       # remove the template's demo screens
   tap-to-deep-link (both order and announcement pushes), silent resync on cold start/
   foreground — verified end-to-end on a physical device, with FCM V1 credentials uploaded
   via `eas credentials`. **Apple Developer Program organization enrolment is now approved**
-  (confirmed via Apple's welcome email) — the enrolment blocker is cleared. iOS work itself
-  has not started yet: no APNs key generated, no iOS development build produced, no iOS
-  device testing done. The SDK 54 → current bump has not started either. Next concrete steps
-  are §4.0/§4.1 in `../Mobile-App-Development-Plan.md` — iOS development build via
-  `eas build --profile development --platform ios`, then generating and uploading the APNs
-  key. `eas.json` already carries production App Store Connect submit credentials
-  (`ascApiKeyPath`, `ascAppId`) ahead of that work — configured for `eas submit` once a build
-  exists, not a sign that iOS work itself has started.
+  (confirmed via Apple's welcome email) — the enrolment blocker is cleared. The APNs key has
+  since been generated and uploaded (2026-09-20). The SDK 54 → current bump has not started
+  yet. `eas.json` already carries production App Store Connect submit credentials
+  (`ascApiKeyPath`, `ascAppId`) ahead of store submission.
 - **First iOS device install (2026-09-17):** done. A development-profile EAS cloud build
   (`eas build --profile development --platform ios`) was installed on a physical iPhone via
   `xcrun devicectl device install app` — see the new §9 gotcha for the full recipe and why
-  local `npx expo run:ios --device` doesn't work on this Mac. No APNs key generated yet and
-  no push-notification testing done on iOS — that's still open.
+  local `npx expo run:ios --device` doesn't work on this Mac. The APNs key has since been
+  generated and uploaded (2026-09-20) — whether locked-screen push/sound now works
+  end-to-end on iOS still needs on-device confirmation after the next rebuild.
 - **Self-signup screen (2026-09-09):** done. `app/(auth)/signup.tsx` calls
   `POST /api/auth/signup`, linked from `app/(auth)/login.tsx`. See §5.
 - **Staff login (2026-09-09):** done. `app/(staff)/index.tsx` (WebView) +
@@ -480,6 +477,20 @@ npm run reset-project       # remove the template's demo screens
   casualite.co) matching a design the Casualite owner supplied, shown only to signed-out
   users. `login.tsx` gained a `DetailBackButton` (`components/detail-back-button.tsx`) back
   to it.
+- **Size Chart (2026-09-22):** done. New `GET /api/size-chart` endpoint (see §6 and
+  `../casualos/CLAUDE.md` rule 5.37) exposes the admin-managed singleton size-chart image to
+  the app. `components/size-chart-content.tsx` fetches it, shows a `Skeleton` placeholder
+  while the image itself downloads (separate from the API-fetch loading state — the image is
+  the slow part), and renders an empty state on a 404 rather than a native error. Reused in
+  two places: a new drawer-only destination (`app/(app)/(tabs)/size-chart.tsx`, "Size Chart"
+  row in `components/app-drawer-content.tsx`, always visible regardless of upload state) and
+  a modal opened from a "Size Chart" link next to the QUANTITY PER SIZE section header on
+  `catalogues/[id].tsx`, so a customer can check sizing without losing their in-progress
+  quantity entry. The image itself is pinch-to-zoom + pan + double-tap-to-reset
+  (`ZoomableImage` inside `size-chart-content.tsx`), built directly on
+  `react-native-gesture-handler` + `react-native-reanimated` — both already linked for the
+  drawer nav's `GestureHandlerRootView` (`app/_layout.tsx`), so no new native dependency or
+  EAS build was needed.
 - **Pending cleanup:** `plugins/withAdiRegistration.js` writes a one-time Google Play
   ownership-verification file into the Android build. Remove it and its `app.json` plugin
   entry once the key shows verified in Play Console — not yet confirmed as of this writing.

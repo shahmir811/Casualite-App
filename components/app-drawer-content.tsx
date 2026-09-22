@@ -20,6 +20,7 @@ const ITEMS: { icon: keyof typeof Ionicons.glyphMap; label: string; href: Href }
   { icon: 'receipt-outline', label: 'My Orders', href: '/orders' },
   { icon: 'wallet-outline', label: 'Account & Ledger', href: '/account' },
   { icon: 'notifications-outline', label: 'Notifications', href: '/announcements' },
+  { icon: 'resize-outline', label: 'Size Chart', href: '/size-chart' },
   { icon: 'settings-outline', label: 'Settings', href: '/settings' },
 ];
 

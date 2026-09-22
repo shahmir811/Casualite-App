@@ -46,6 +46,7 @@ export default function TabsLayout() {
           which is what lets their screens keep the tab bar visible (see
           app/(app)/_layout.tsx's docblock). */}
       <Tabs.Screen name="announcements" options={{ href: null }} />
+      <Tabs.Screen name="size-chart" options={{ href: null }} />
       <Tabs.Screen name="settings" options={{ href: null }} />
     </Tabs>
   );

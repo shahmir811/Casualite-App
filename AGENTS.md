@@ -29,8 +29,7 @@ Six things that cause real damage if broken. Everything else in this file is det
 
 ## 1. What this project is
 
-A customer-facing iOS and Android app for **Casualite** (also written "Casual Lite"), a
-Pakistani clothing brand. Built by **The Techmint Ltd** (UK, company no. 16834286).
+A customer-facing iOS and Android app for **Casualite**, a Pakistani clothing brand. Built by **The Techmint Ltd** (UK, company no. 16834286).
 
 It sits on top of **CasualOS**, the Laravel business operations system already delivered to
 the same client. CasualOS lives in the sibling folder `../casualos/` and its own `CLAUDE.md`

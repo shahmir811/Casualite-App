@@ -6,6 +6,7 @@ import { useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -21,6 +22,7 @@ import { DesignGalleryViewer } from '@/components/design-gallery-viewer';
 import { DesignTile } from '@/components/design-tile';
 import { QuantityStepperRow } from '@/components/quantity-stepper-row';
 import { DesignTileSkeleton, Skeleton } from '@/components/skeleton';
+import { SizeChartContent } from '@/components/size-chart-content';
 import { EmptyView, ErrorView } from '@/components/state-views';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { apiClient, ApiError } from '@/lib/api-client';
@@ -48,6 +50,7 @@ export default function CatalogueDetailScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [openingBook, setOpeningBook] = useState(false);
+  const [sizeChartVisible, setSizeChartVisible] = useState(false);
 
   const quote = useQuote(catalogueId, sizes);
 
@@ -243,13 +246,37 @@ export default function CatalogueDetailScreen() {
         />
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>QUANTITY PER SIZE</Text>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>QUANTITY PER SIZE</Text>
+            <Pressable
+              style={({ pressed }) => [styles.sizeChartLink, pressed && styles.sizeChartLinkPressed]}
+              onPress={() => setSizeChartVisible(true)}>
+              <Ionicons name="resize-outline" size={14} color={Colors.accent} />
+              <Text style={styles.sizeChartLinkText}>Size Chart</Text>
+            </Pressable>
+          </View>
           <Text style={styles.sectionHint}>
             Applies to every design in this catalogue — {catalogue.number_of_designs}{' '}
             {catalogue.number_of_designs === 1 ? 'design' : 'designs'}.
           </Text>
           <QuantityStepperRow sizes={sizes} onChange={handleChange} />
         </View>
+
+        <Modal
+          visible={sizeChartVisible}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setSizeChartVisible(false)}>
+          <View style={styles.container}>
+            <View style={[styles.sizeChartModalHeader, { paddingTop: insets.top + Spacing.sm }]}>
+              <Text style={styles.sizeChartModalTitle}>Size Chart</Text>
+              <Pressable hitSlop={12} onPress={() => setSizeChartVisible(false)} accessibilityLabel="Close">
+                <Ionicons name="close" size={24} color={Colors.textPrimary} />
+              </Pressable>
+            </View>
+            <SizeChartContent />
+          </View>
+        </Modal>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>NOTES (OPTIONAL)</Text>
@@ -429,12 +456,44 @@ const styles = StyleSheet.create({
   section: {
     gap: Spacing.sm,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   sectionTitle: {
     fontSize: 13,
     fontWeight: Typography.weightSemibold,
     color: Colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
+  },
+  sizeChartLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  sizeChartLinkPressed: {
+    opacity: 0.6,
+  },
+  sizeChartLinkText: {
+    fontSize: 13,
+    fontWeight: Typography.weightSemibold,
+    color: Colors.accent,
+  },
+  sizeChartModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.divider,
+  },
+  sizeChartModalTitle: {
+    fontSize: 17,
+    fontWeight: Typography.weightSemibold,
+    color: Colors.textPrimary,
   },
   sectionHint: {
     fontSize: 13,
