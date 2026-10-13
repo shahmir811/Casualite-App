@@ -8,11 +8,44 @@ import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ScreenHeader } from '@/components/screen-header';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
+import { useNotification } from '@/lib/notification-context';
 
 export default function SettingsScreen() {
-  const { logout } = useAuth();
+  const { logout, deleteAccount } = useAuth();
+  const { notify } = useNotification();
   const navigation = useNavigation();
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteAccount = () => {
+    notify({
+      title: 'Delete Account',
+      message:
+        'This permanently deletes your account and signs you out everywhere. Your order history stays with Casualite for their records, but you will no longer be able to sign in. This cannot be undone.',
+      variant: 'error',
+      buttons: [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await deleteAccount();
+            } catch (err) {
+              notify({
+                title: 'Could not delete account',
+                message: err instanceof Error ? err.message : 'Please try again.',
+                variant: 'error',
+              });
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ],
+    });
+  };
 
   useEffect(() => {
     Notifications.getPermissionsAsync().then(({ status }) => {
@@ -42,6 +75,15 @@ export default function SettingsScreen() {
       <View style={styles.group}>
         <SettingsRow icon="log-out-outline" label="Sign Out" onPress={logout} />
       </View>
+
+      <View style={styles.group}>
+        <SettingsRow
+          icon="trash-outline"
+          label={deleting ? 'Deleting…' : 'Delete Account'}
+          onPress={deleting ? undefined : handleDeleteAccount}
+          destructive
+        />
+      </View>
       </View>
     </View>
   );
@@ -52,16 +94,18 @@ function SettingsRow({
   label,
   value,
   onPress,
+  destructive,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   value?: string;
   onPress?: () => void;
+  destructive?: boolean;
 }) {
   const row = (
     <>
-      <Ionicons name={icon} size={20} color={Colors.accent} />
-      <Text style={styles.label}>{label}</Text>
+      <Ionicons name={icon} size={20} color={destructive ? Colors.error : Colors.accent} />
+      <Text style={[styles.label, destructive && styles.labelDestructive]}>{label}</Text>
       {value ? <Text style={styles.value}>{value}</Text> : null}
       {onPress ? <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} /> : null}
     </>
@@ -114,6 +158,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: Typography.weightMedium,
     color: Colors.textPrimary,
+  },
+  labelDestructive: {
+    color: Colors.error,
   },
   value: {
     fontSize: 15,

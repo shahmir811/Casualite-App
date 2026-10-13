@@ -54,13 +54,7 @@ export default function SignupScreen() {
 
   useEffect(loadCountries, []);
 
-  const canSubmit =
-    name.trim().length > 0 &&
-    contactNumber.trim().length > 0 &&
-    city.trim().length > 0 &&
-    country.trim().length > 0 &&
-    email.trim().length > 0 &&
-    !submitting;
+  const canSubmit = name.trim().length > 0 && email.trim().length > 0 && !submitting;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -69,9 +63,9 @@ export default function SignupScreen() {
     try {
       const data = await apiClient.post<SignupResponse>('/api/auth/signup', {
         name: name.trim(),
-        contact_number: contactNumber.trim(),
-        city: city.trim(),
-        country,
+        contact_number: contactNumber.trim() || undefined,
+        city: city.trim() || undefined,
+        country: country || undefined,
         address: address.trim() || undefined,
         email: email.trim(),
       });
@@ -118,7 +112,7 @@ export default function SignupScreen() {
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>Contact Number</Text>
+          <Text style={styles.label}>Contact Number (optional)</Text>
           <TextInput
             style={styles.input}
             placeholder="03XX XXXXXXX"
@@ -130,7 +124,7 @@ export default function SignupScreen() {
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>City</Text>
+          <Text style={styles.label}>City (optional)</Text>
           <TextInput
             style={styles.input}
             placeholder="Your city"
@@ -142,7 +136,7 @@ export default function SignupScreen() {
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>Country</Text>
+          <Text style={styles.label}>Country (optional)</Text>
           <Pressable
             style={styles.input}
             disabled={countriesLoading}

@@ -83,9 +83,9 @@ This is the agreed contract scope. Nothing outside it gets built without a chang
 |---|---|---|
 | 01 | **Authentication** | Portal link + email sign-in (no password), persistent session, sign out, self-service signup with admin approval |
 | 02 | **Account & Orders** | Payment status, outstanding balance, advance credit, order history with expandable detail — activity trail, pieces with photos and sizes, dispatch batches, shipping address |
-| 03 | **Catalogue & Ordering** | Browse open catalogues with cover photos and designs, size-wise quantity entry, live order value, place order with confirmation |
+| 03 | **Catalogue & Ordering** | Browse open catalogues with cover photos and designs, size-wise quantity entry, live order value, place order with confirmation. Browsing (not pricing/ordering) is also reachable pre-login — see §5/§6. |
 | 04 | **Announcements** | Push notifications, in-app announcement history. (The admin sending interface is built in CasualOS, not here.) |
-| 05 | **Settings** | Notification preferences, sign out, app version |
+| 05 | **Settings** | Notification preferences, sign out, app version, account deletion (soft delete — see above) |
 
 Self-signup (2026-09-09) was approved as an addition to Module 01, not a new module — see §5.
 
@@ -97,9 +97,17 @@ through an embedded WebView, with no native screens of its own. See §5.
 **Module 02 is one scrolling screen with expandable order cards**, mirroring
 `../casualos/resources/views/portal/dashboard.blade.php`. Do not split it into four screens.
 
-**No account deletion request in Settings.** An earlier draft of this scope called for one
-as Apple-rejection insurance; the Casualite owner has since confirmed there is no path to
-delete an account and none is wanted. Do not add one without the owner reopening this.
+**Account deletion exists in Settings (2026-10-13), superseding the earlier "none wanted"
+decision.** The earlier draft of this doc ruled it out on the owner's instruction; Apple's
+Guideline 5.1.1(v) rejection on build 1.0.0 (21) forced it back open — an app with self-signup
+*must* offer in-app deletion, no exception. Implemented as a **soft delete**, not a hard one:
+`customers.deleted_at` (Eloquent `SoftDeletes`), tokens revoked, `portal_token` rotated to an
+unshared UUID so the old WhatsApp link dies. The row itself is never removed — `customers`
+migration's own comment says "customers are NEVER deleted — per proposal", and
+`orders.customer_id` is `nullOnDelete()`, so a hard delete would have orphaned every past
+order/ledger entry. Soft delete satisfies both constraints at once: the account becomes
+unusable and unreachable (Apple's actual requirement) while every financial record keeps its
+`customer_id` intact. See §6 and §11.
 
 ---
 
@@ -161,6 +169,12 @@ Regression tests live at `../casualos/tests/Unit/OrderPlacementServiceTest.php`.
 - **Access recovery is owner-side.** If a customer loses the WhatsApp message, the admin
   just resends the same never-changing portal link. There is no "forgot password" flow
   because there is no password.
+- **Pre-login guest browsing (2026-10-13):** `GET /api/public/catalogues` and
+  `GET /api/public/catalogues/{id}` need no bearer token — reachable from the Wholesale card
+  on the destination selector (`app/(auth)/catalogues-preview/`) without signing in. No
+  pricing, no `already_ordered`, no quote/order ability — those stay behind login. Added
+  specifically for Apple Guideline 5.1.1(v): catalogue browsing isn't account-based, so it
+  can't be gated behind sign-in even though pricing/ordering legitimately is. See §6.
 
 OTP was explicitly rejected: it would make every login depend on email delivery, and the
 owner already onboards customers manually over WhatsApp. There is no `password` column on
@@ -193,6 +207,13 @@ shared device, or the website's own login form would render inside the app. See
 **On sign-out:** revoke the token via `POST /api/auth/logout`, deregister the push token via
 `DELETE /api/push-tokens`, and clear secure storage. All three, or the user keeps getting pushes.
 
+**Account deletion (2026-10-13):** `DELETE /api/me` — Settings → "Delete Account", confirmed
+via `useNotification()`. Unregisters the push token first (while the bearer token is still
+valid), then calls the endpoint, which revokes every Sanctum token for the customer (not just
+the current one — unlike logout), rotates `portal_token` to a fresh unshared UUID, and soft-
+deletes the `Customer` row. Not best-effort like logout: a failed delete must not clear local
+state, or the customer would be dropped to signed-out with no way back in. See §3 and §6.
+
 ---
 
 ## 6. API contract
@@ -203,12 +224,15 @@ requests send `Authorization: Bearer <token>` and `Accept: application/json`.
 | Method | Route | Purpose |
 |---|---|---|
 | POST | `/api/auth/verify` | portal_token (bare or full URL) + email + platform (`ios`/`android`) → token |
-| POST | `/api/auth/signup` | name/contact_number/city/country/address/email → queues a review request (public, no bearer token) |
+| POST | `/api/auth/signup` | name + email required, contact_number/city/country/address all optional → queues a review request (public, no bearer token). Trimmed to name+email on 2026-10-13 for Apple Guideline 5.1.1(v) — see §3. |
 | GET | `/api/countries` | Destination countries accepted by signup's country picker — server is the source of truth, see §5 |
+| GET | `/api/public/catalogues` | Guest browsing, no bearer token — covers only, no pricing. See §5. |
+| GET | `/api/public/catalogues/{id}` | Guest browsing, no bearer token — designs/photos only, no pricing, no `already_ordered`. See §5. |
 | POST | `/api/auth/logout` | Revoke current token |
+| DELETE | `/api/me` | Delete account (soft delete) — revokes every token for the customer, rotates `portal_token`. See §5. |
 | GET | `/api/me` | Profile, balance, advance credit |
-| GET | `/api/catalogues` | Open catalogues with covers |
-| GET | `/api/catalogues/{id}` | Designs, photos, pricing |
+| GET | `/api/catalogues` | Open catalogues with covers (authenticated — includes `already_ordered`) |
+| GET | `/api/catalogues/{id}` | Designs, photos, pricing (authenticated) |
 | POST | `/api/catalogues/{id}/quote` | Price a prospective order without writing it — calls `OrderPlacementService::quote()` |
 | GET | `/api/catalogues/{id}/book` | Fresh 10-min presigned S3 URL for the catalogue's lookbook PDF, `{ url }`. 404 if none uploaded — check `has_catalogue_book` on the catalogue first. Fetch on tap, never cache. |
 | POST | `/api/orders` | Place order (collective quantity model) |
@@ -417,8 +441,8 @@ npm run reset-project       # remove the template's demo screens
 - **Phase 3 — app build:** done. All five modules have screens: 01 Authentication,
   02 Account & Orders, 03 Catalogue & Ordering, 04 Announcements (list, detail with
   swipeable image gallery, unread indicator on Home, mark-as-read on open), and
-  05 Settings (notification status with a link to system settings, sign out, app version —
-  no account deletion item, see §3).
+  05 Settings (notification status with a link to system settings, sign out, app version,
+  account deletion — see §3/2026-10-13 entry below).
 - **Phase 4 — push + development build + SDK bump:** push notifications are fully working
   on Android — permission request, token registration/deregistration, foreground handling,
   tap-to-deep-link (both order and announcement pushes), silent resync on cold start/
@@ -506,6 +530,66 @@ npm run reset-project       # remove the template's demo screens
   attached per call. This lets the backend refresh "last seen" on any authenticated request,
   not only at login, since Sanctum tokens here never expire. No new screens or endpoints on
   this side. See §6.
+- **Guideline 5.1.1(v) rejection round (2026-10-13):** build 1.0.0 (21) — the first
+  resubmission that fixed the earlier Guideline 4 (CASUALITE.CO opening system Safari, see
+  the 2026-09-27 entry's sibling fix) — came back rejected again, this time on three Legal/
+  Privacy grounds: (1) catalogue browsing required login even though it isn't account-based,
+  (2) signup required personal info (contact_number/city/country) not strictly necessary for
+  the app's core function, (3) the app supports account creation (self-signup) but offered no
+  account deletion. All three fixed in one pass: guest catalogue browsing
+  (`app/(auth)/catalogues-preview/`, `GET /api/public/catalogues*`, no pricing — see §5/§6),
+  signup trimmed to name+email required (§6), and account deletion as a soft delete (§3/§5).
+  This directly reversed the standing "no account deletion" decision from earlier in this
+  file — see §3 for why soft delete, not hard delete, was the right fix given
+  `orders.customer_id`'s `nullOnDelete()` and the customers migration's own "never deleted"
+  comment. Not yet resubmitted to Apple as of this writing.
+- **CasualOS admin-side fallout from the above (2026-10-13):** soft-deleting `Customer`
+  broke every admin view of a deleted customer's history, since Eloquent `BelongsTo`
+  relations apply the related model's global scopes by default — `$order->customer` (and
+  the same relation on `Payment`/`AdvancePayment`/`CustomerLedger`/`Refund`) silently
+  returned `null` for any record tied to a deleted customer, and most Blade templates read
+  `->customer->name` etc. without a null-safe operator (order show/edit/pdf, dispatch,
+  reports, bank collection, activity log — ~90 call sites). Fixed by adding `->withTrashed()`
+  to all five relations (`casualos/app/Models/{Order,Payment,AdvancePayment,
+  CustomerLedger,Refund}.php`). Separately, `Customer`'s implicit route-model binding
+  (`customers.show`/`edit`/`ledger`/advance-payments routes) also excludes trashed records
+  by default, which would 404 any "View Customer" link into a deleted customer's page —
+  fixed with a `resolveRouteBinding()` override on `Customer` that always includes trashed.
+  `customers/show.blade.php` now shows an "Account Deleted" badge so staff aren't confused
+  landing on one. None of this touches `AuthController::verify()`, which queries directly
+  rather than through route binding — a deleted customer still can't log back in. Covered by
+  a new test in `casualos/tests/Feature/Api/OrderTest.php`.
+  **Deleted-account visibility + restore, same day:** the admin customer list excludes
+  soft-deleted rows by default with no indicator anywhere, and there was no way to undo a
+  deletion short of a manual DB query — both fixed. `customers.index` now has Active/Deleted
+  tabs (`?status=deleted` → `Customer::onlyTrashed()`) and a Status column/badge on every
+  row; the "Copy Portal Link" action is hidden on deleted rows since the token was rotated to
+  an unshared UUID on deletion and would be actively misleading to copy. `POST
+  customers/{customer}/restore` (admin-only route + `$isAdmin`-gated button on the show page)
+  calls `$customer->restore()` — `portal_token` is deliberately *not* restored to its
+  original value (it can't be; the original was overwritten, not stored), so the flash
+  message reminds the admin to send a fresh portal link after restoring. **Known, accepted
+  consequence not fixed:** `customers.email` is a unique column and Laravel's `unique:`
+  validation rule checks the raw table, so once an email belongs to a soft-deleted customer
+  it can never be
+  reused for a new `Customer` record — flagged to the owner, not fixed, since freeing it up
+  would need an explicit decision (purge vs. scrub vs. leave it burned).
+- **Catalogues filter chips now filter (2026-10-13):** the "All / New / Upcoming / Past"
+  pill row on `app/(app)/(tabs)/catalogues/index.tsx` was visual-only since the 2026-09-11
+  home redesign — tapping a pill changed which one looked selected but never touched the
+  rendered list. "Upcoming" was dropped rather than faked: catalogues are only ever `open`
+  or `closed`, there's no scheduled-release concept on the backend to back a real "not yet
+  released" state. "Past" was also dropped, same day — it's `status === 'closed'`, which
+  `sold_out` already covers (backend's `isSoldOut()` is `isClosed() || availablePieces() <=
+  0`), so it was a redundant second pill for the same catalogues as "Sold Out". "New"
+  (created within 14 days — briefly added `created_at` to `CatalogueSummaryResource` for
+  this) was then replaced with "Not Ordered" (`!already_ordered`) the same day, on the
+  owner's call: recency isn't what a customer deciding what to order next cares about,
+  whether they've already ordered it is. `created_at` was removed again from the resource
+  since nothing else used it. Shipped as "All / Not Ordered / Already Ordered / Sold Out" —
+  "Not Ordered" and "Sold Out" deliberately overlap (a sold-out catalogue never ordered
+  shows under both) rather than excluding each other. Each filter has its
+  own empty-state message.
 - **Pending cleanup:** `plugins/withAdiRegistration.js` writes a one-time Google Play
   ownership-verification file into the Android build. Remove it and its `app.json` plugin
   entry once the key shows verified in Play Console — not yet confirmed as of this writing.

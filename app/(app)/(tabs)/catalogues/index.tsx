@@ -11,11 +11,37 @@ import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { CatalogueSummary } from '@/lib/types';
 import { useApiQuery } from '@/lib/use-api-query';
 
-// Visual only, per the owner's 2026-09-11 design feedback. /api/catalogues
-// now returns every catalogue (open and closed, see CatalogueTile's `closed`
-// state), but there's still no data to tell "New" from "Upcoming" apart —
-// only "All" actually filters; the rest are placeholders for now.
-const FILTERS = ['All', 'New', 'Upcoming', 'Past'] as const;
+// "Upcoming" was dropped (2026-10-13) — catalogues are only ever `open` or
+// `closed` on the backend, there's no scheduled-release concept to back it,
+// so it would have been a fake filter. "Past" was also dropped (2026-10-13)
+// — it's status === 'closed', which `sold_out` already covers (backend's
+// isSoldOut() is isClosed() || availablePieces() <= 0), so it was a second
+// pill for the same set of catalogues. "New" (created_at within 14 days) was
+// replaced with "Not Ordered" the same day — what a customer deciding what
+// to order next actually wants, not recency. "Not Ordered" and "Sold Out"
+// deliberately overlap (a sold-out catalogue the customer never ordered
+// shows under both) rather than excluding each other.
+const FILTERS = ['All', 'Not Ordered', 'Already Ordered', 'Sold Out'] as const;
+
+function matchesFilter(catalogue: CatalogueSummary, filter: (typeof FILTERS)[number]): boolean {
+  switch (filter) {
+    case 'All':
+      return true;
+    case 'Not Ordered':
+      return !catalogue.already_ordered;
+    case 'Already Ordered':
+      return catalogue.already_ordered;
+    case 'Sold Out':
+      return catalogue.sold_out;
+  }
+}
+
+const EMPTY_MESSAGE: Record<(typeof FILTERS)[number], string> = {
+  All: 'No catalogues yet.',
+  'Not Ordered': "You've ordered every open catalogue.",
+  'Already Ordered': "You haven't ordered any catalogues yet.",
+  'Sold Out': 'No sold out catalogues.',
+};
 
 export default function CataloguesScreen() {
   const router = useRouter();
@@ -100,17 +126,20 @@ export default function CataloguesScreen() {
     );
   }
 
+  const filteredCatalogues = catalogues.filter((catalogue) => matchesFilter(catalogue, activeFilter));
+
   return (
     <View style={styles.container}>
       {header}
       {filterRow}
       <FlatList
-        data={catalogues}
+        data={filteredCatalogues}
         keyExtractor={(item) => String(item.id)}
         renderItem={({ item }) => (
           <CatalogueTile catalogue={item} onPress={() => router.push(`/catalogues/${item.id}`)} />
         )}
-        contentContainerStyle={styles.list}
+        ListEmptyComponent={<EmptyView icon="pricetags-outline" message={EMPTY_MESSAGE[activeFilter]} />}
+        contentContainerStyle={filteredCatalogues.length === 0 ? styles.emptyContainer : styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
       />
     </View>
