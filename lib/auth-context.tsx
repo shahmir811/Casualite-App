@@ -19,6 +19,7 @@ type AuthContextValue = {
   staffRedirectUrl: string | null;
   login: (portalToken: string, email: string) => Promise<void>;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   // Called by the (staff) WebView screen once it detects the staff member
   // has logged out of the website inside the WebView — returns the app to
   // its own native login screen instead of showing the website's login form.
@@ -116,8 +117,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void setBadgeCount(0);
   }, []);
 
+  // Unlike logout(), this is NOT best-effort — a failed delete must not
+  // clear local state, or the customer would be dropped back to a
+  // signed-out screen while their account still exists server-side with no
+  // way back in (portal_token is still valid, but they'd have no reason to
+  // think so). Push token is unregistered first, while the bearer token is
+  // still valid — the server revokes every token for this customer as part
+  // of deletion, so any request after that point would 401.
+  const deleteAccount = useCallback(async () => {
+    await unregisterPushToken();
+    await apiClient.delete('/api/me');
+    setAuthToken(null);
+    await clearStoredToken();
+    setCustomer(null);
+    setStatus('unauthenticated');
+    void setBadgeCount(0);
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ status, customer, staffRedirectUrl, login, logout, exitStaffSession }}>
+    <AuthContext.Provider value={{ status, customer, staffRedirectUrl, login, logout, deleteAccount, exitStaffSession }}>
       {children}
     </AuthContext.Provider>
   );

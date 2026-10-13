@@ -150,6 +150,28 @@ export type CatalogueDetail = CatalogueSummary & {
   designs: Design[];
 };
 
+// Unauthenticated counterpart to CatalogueSummary/Design — no pricing, no
+// already_ordered. Backs the pre-login guest browsing screens, see
+// app/(auth)/catalogues-preview.
+export type PublicCatalogueSummary = {
+  id: number;
+  name: string;
+  status: 'open' | 'closed';
+  cover_photo_url: string | null;
+  number_of_designs: number;
+  sold_out: boolean;
+};
+
+export type PublicDesign = {
+  id: number;
+  name: string;
+  photo_url: string | null;
+};
+
+export type PublicCatalogueDetail = PublicCatalogueSummary & {
+  designs: PublicDesign[];
+};
+
 // The one set of XS/S/M/L/XL quantities entered for a whole catalogue —
 // applied to every design in it. See CLAUDE.md §4.
 export type QuoteLine = {

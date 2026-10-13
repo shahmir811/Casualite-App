@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
@@ -44,7 +45,7 @@ export default function WelcomeScreen() {
       buttonBg: Colors.textSecondary,
       iconColor: Colors.surface,
       caption: 'FOR OUR PARTNERS',
-      onPress: () => router.push('/login'),
+      onPress: () => router.push('/catalogues-preview'),
     },
     {
       number: '03',
@@ -54,7 +55,7 @@ export default function WelcomeScreen() {
       buttonBg: Colors.highlightSoft,
       iconColor: Colors.textPrimary,
       caption: 'FOR EVERYONE',
-      onPress: () => Linking.openURL(CASUALITE_WEBSITE_URL),
+      onPress: () => WebBrowser.openBrowserAsync(CASUALITE_WEBSITE_URL),
     },
   ];
 
