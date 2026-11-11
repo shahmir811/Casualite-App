@@ -24,7 +24,7 @@ import { DesignTile } from '@/components/design-tile';
 import { QuantityStepperRow } from '@/components/quantity-stepper-row';
 import { DesignTileSkeleton, Skeleton } from '@/components/skeleton';
 import { SizeChartContent } from '@/components/size-chart-content';
-import { EmptyView, ErrorView } from '@/components/state-views';
+import { ErrorView } from '@/components/state-views';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { apiClient, ApiError } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
@@ -94,16 +94,16 @@ export default function CatalogueDetailScreen() {
 
   const { catalogue } = state.data;
 
-  // Both cases block a real order server-side, so there's no form to show —
-  // same treatment as the web app's sold-out screen.
-  if (catalogue.sold_out) {
-    return <EmptyView icon="close-circle-outline" message="This catalogue is sold out." />;
-  }
-  if (catalogue.already_ordered) {
-    return (
-      <EmptyView icon="checkmark-circle-outline" message="You've already placed an order on this catalogue." />
-    );
-  }
+  // Both cases block a real order server-side, so the ordering form is
+  // replaced by a notice — but the cover, catalogue book and designs stay
+  // browsable. Already-ordered wins when both apply: it's the more relevant
+  // fact for this customer.
+  const orderBlocked: { icon: keyof typeof Ionicons.glyphMap; message: string } | null =
+    catalogue.already_ordered
+      ? { icon: 'checkmark-circle-outline', message: 'You have already placed an order on this catalogue.' }
+      : catalogue.sold_out
+        ? { icon: 'close-circle-outline', message: 'This catalogue has already been sold out.' }
+        : null;
 
   const piecesPerDesign = sizes.xs + sizes.s + sizes.m + sizes.l + sizes.xl;
   const canSubmit = piecesPerDesign > 0 && !submitting;
@@ -246,6 +246,13 @@ export default function CatalogueDetailScreen() {
           onClose={() => setViewerIndex(null)}
         />
 
+        {orderBlocked ? (
+          <View style={styles.blockedNotice}>
+            <Ionicons name={orderBlocked.icon} size={22} color={Colors.textSecondary} />
+            <Text style={styles.blockedNoticeText}>{orderBlocked.message}</Text>
+          </View>
+        ) : (
+        <>
         <View style={styles.section}>
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>QUANTITY PER SIZE</Text>
@@ -294,6 +301,8 @@ export default function CatalogueDetailScreen() {
         </View>
 
         <OrderFooter quote={quote} hint={hint} canSubmit={canSubmit} submitting={submitting} onSubmit={handleSubmit} />
+        </>
+        )}
       </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -458,6 +467,22 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: Spacing.sm,
+  },
+  blockedNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.card,
+    padding: Spacing.md,
+  },
+  blockedNoticeText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: Typography.weightRegular,
+    color: Colors.textSecondary,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
